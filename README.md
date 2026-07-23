@@ -139,8 +139,10 @@ fi
 
 ## Skills
 
-Auto-discovered from `~/.agents/skills/<name>/SKILL.md`. Each harness that
-supports the skills format picks them up automatically.
+Auto-discovered from `SKILL.md` files under `~/.agents/skills/`, including
+nested and symlinked project namespaces. Each compatible harness loads the
+catalog; [`skill-orchestration`](skills/skill-orchestration/) can refresh it from
+disk and select the smallest matching skill set.
 
 ### Featured: Tweak — Change Planning
 
@@ -167,19 +169,65 @@ Just tell your agent:
 - **Full docs:** [`skills/tweak/README.md`](skills/tweak/README.md)
 - **Worked example:** `skills/tweak/examples/add-rate-limiting/`
 
-### Other Skills
+### Skill Catalog
+
+Skills are grouped by the kind of decision they support. The directory is the
+source of truth; this catalog highlights the public skills shipped with the
+repository.
+
+#### Planning, review, and architecture
 
 | Skill | What it does |
 |-------|-------------|
-| [impeccable](https://www.skills.sh) | Production-grade frontend design & iteration |
-| [investigate](skills/investigate/) | Systematic debugging with root-cause analysis |
-| [scrutinize](skills/scrutinize/) | End-to-end review of plans, PRs, and code changes |
-| [improve](skills/improve/) | Codebase audit with prioritized implementation plans |
-| [dox](skills/dox/) | Self-documenting AGENTS.md hierarchy for AI agents |
-| [ponytail](skills/ponytail/) | YAGNI / minimal-solution enforcement |
-| [caveman](skills/caveman/) | Ultra-compressed communication mode (~75% fewer tokens) |
-| [find-skills](skills/find-skills/) | Discover and install skills from the ecosystem |
-| [software-development/](skills/software-development/) | Laravel, PHP, TDD, security, TailwindCSS, and more |
+| [skill-orchestration](skills/skill-orchestration/) | Dynamically discovers and loads the smallest matching skill set |
+| [tweak](skills/tweak/) | Turns a change request into a self-contained implementation plan |
+| [scrutinize](skills/scrutinize/) | Reviews plans, PRs, and code changes from an outsider perspective |
+| [improve](skills/improve/) | Audits a codebase and writes prioritized implementation plans |
+| [systems-thinking](skills/systems-thinking/) | Traces state ownership, feedback, and blast radius |
+| [dox](skills/dox/) | Maintains the self-documenting AGENTS.md hierarchy |
+
+#### Debugging and reasoning
+
+| Skill | What it does |
+|-------|-------------|
+| [investigate](skills/investigate/) | Leads systematic root-cause investigation |
+| [systematic-debugging](skills/software-development/systematic-debugging/) | Provides a four-phase debugging workflow |
+| [analogical-thinking](skills/analogical-thinking/) | Uses structural analogies when standard approaches stall |
+| [ponytail](skills/ponytail/) | Enforces the smallest solution that actually works |
+
+#### Knowledge, operations, and discovery
+
+| Skill | What it does |
+|-------|-------------|
+| [local-wiki](skills/local-wiki/) | Ingests source material into a governed local knowledge base |
+| [clickup](skills/clickup/) | Retrieves and triages ClickUp tasks |
+| [clickup-issue-workflow](skills/clickup-issue-workflow/) | Drives a ClickUp issue from intake through review |
+| [mr-review](skills/mr-review/) | Fetches and resolves merge-request review feedback |
+| [find-skills](skills/find-skills/) | Discovers and installs skills from the ecosystem |
+| [openspec](skills/openspec/) | Runs artifact-driven change workflows |
+
+#### Communication and UI quality
+
+| Skill | What it does |
+|-------|-------------|
+| [impeccable](skills/impeccable/) | Provides production-grade frontend design and iteration |
+| [caveman](skills/caveman/) | Compresses communication while preserving technical accuracy |
+| [caveman-commit](skills/caveman-commit/) | Generates concise Conventional Commit messages |
+
+#### Development bundles
+
+| Directory | What it contains |
+|-----------|------------------|
+| [software-development/](skills/software-development/) | Laravel, PHP, TDD, security, TailwindCSS, and related guidance |
+| `projects/` | Private project-specific skills excluded from this repository |
+
+### Local wiki workflow
+
+The [`local-wiki`](skills/local-wiki/) skill supports governed project knowledge
+bases. It discovers a wiki dynamically, reads its nearest `AGENTS.md` before
+writing, appends source material to the raw corpus, and rebuilds derived pages.
+If no governed wiki exists, the skill asks whether to bootstrap one instead of
+creating an undocumented structure.
 
 ### Install from [skills.sh](https://www.skills.sh)
 
@@ -217,16 +265,20 @@ EOF
 │   ├── AGENTS.md              ← global development workflow
 │   └── RTK.md                 ← RTK token-killer reference (optional)
 └── skills/                    ← skill library (auto-discovered)
+    ├── skill-orchestration/   ← skill and MCP routing
     ├── tweak/                 ← change planning (featured)
-    ├── impeccable/            ← frontend design (skills.sh)
-    ├── investigate/           ← systematic debugging
     ├── scrutinize/            ← code review & second opinions
     ├── improve/               ← codebase audit & roadmap
+    ├── systems-thinking/      ← state, feedback & blast-radius analysis
     ├── dox/                   ← self-documenting AGENTS.md hierarchy
-    ├── ponytail/              ← YAGNI / minimal-solution enforcement
-    ├── caveman/               ← ultra-compressed communication mode
-    ├── find-skills/           ← skill discovery (skills.sh)
-    └── software-development/  ← general dev skills (Laravel, TDD, PHP, …)
+    ├── investigate/           ← root-cause debugging
+    ├── analogical-thinking/   ← cross-domain reasoning
+    ├── local-wiki/            ← governed knowledge-base ingestion
+    ├── openspec/              ← artifact-driven workflows
+    ├── impeccable/            ← frontend design & iteration
+    ├── find-skills/           ← skill discovery
+    ├── software-development/  ← Laravel, TDD, PHP, security, and more
+    └── projects/              ← private skills (gitignored)
 ```
 
 ---

@@ -1,8 +1,10 @@
 # Private / company skills — do not share
-skills/appetiser/
+skills/projects/
 
 # OS files
 .DS_Store
 
 # Skill installer state (managed externally)
 .skill-lock.json
+
+.ruff_cache

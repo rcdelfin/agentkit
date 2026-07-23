@@ -1,115 +1,79 @@
 ---
 name: skill-orchestration
-description: "Skill router — activates at the start of any non-trivial task to match the task to the right domain skills and MCP tools before acting. Trigger proactively on every task, or when unsure which skills apply. Provides a decision matrix mapping task signals to skills and MCP routes. Reduces missed skill activations and ensures MCP tools are used where they add value."
+description: "Dynamic skill router — discovers available SKILL.md metadata, matches the current task to the smallest relevant skill set, and loads those skills before acting. Trigger proactively at the start of non-trivial tasks or whenever the available skill catalog may have changed."
 ---
 
 # Skill Orchestration
 
-Match the task to the right skills and MCP tools **before** acting. Do not start implementation until you have identified and loaded the relevant skills.
+Discover and select the right skills before acting. Skill metadata is the source
+of truth; do not maintain a duplicate routing matrix here.
+
+## Activation model
+
+A skill is activated by reading its `SKILL.md` and following its instructions.
+Discovery only reads frontmatter metadata. It must never execute scripts or load
+full skill bodies speculatively.
 
 ## Procedure
 
-1. **Ground in global principles.** Apply SYSTEM.md and AGENTS.md first — think before acting, trace state/feedback/blast-radius, plan, minimal changes. These are always-on and never overridden by skills.
-2. **Classify** the task using the matrix below (one or more domains may apply).
-3. **Load** every matching skill's `SKILL.md` via the `read` tool.
-4. **Route** to MCP tools where the matrix indicates — especially `search-docs` before writing framework code.
-5. **Act** following global principles + the loaded skill's domain-specific instructions.
-6. **Verify** per SYSTEM.md / AGENTS.md — tests, type-check, lint, build.
+1. **Ground in global rules.** Apply `SYSTEM.md` and the applicable `AGENTS.md`
+   hierarchy first. Skills add domain guidance; they do not override it.
+2. **Discover available skills.** Prefer the harness-provided skill catalog when
+   it is present and current. Refresh from disk when the catalog is absent, a
+   skill changed during the session, or a referenced skill cannot be found:
 
-## Decision Matrix
+   ```bash
+   python3 <skill-directory>/scripts/discover_skills.py
+   ```
 
-### Backend — Laravel / PHP
+   Resolve `<skill-directory>` from this `SKILL.md` location. The scanner infers
+   the shared `skills/` root, follows symlinked project namespaces, and emits
+   `name`, `path`, and `description` as tab-separated values.
+3. **Match semantically.** Compare the current request and relevant conversation
+   state with each skill's `name` and `description`. Descriptions are trigger
+   contracts, not marketing summaries.
+4. **Choose the smallest sufficient set.** Prefer one primary workflow skill plus
+   only the domain or verification skills required to complete the task.
+5. **Load before acting.** Read every selected `SKILL.md`. When it references a
+   relative file, resolve it from that skill's directory.
+6. **Compose instructions.** Follow global rules first, then workflow skills,
+   then domain-specific skills. A more specific matching skill controls its
+   domain unless it conflicts with higher-level instructions.
+7. **Route tools.** Use directly available tools by their descriptions. For MCP
+   capabilities, search the MCP catalog when needed. Never invent an unavailable
+   tool; selected skills may impose additional tool requirements.
+8. **Act and verify.** Implement the smallest correct change and run the strongest
+   applicable checks.
 
-| Task Signal | Skills to Load | MCP Route |
-|-------------|---------------|-----------|
-| Controller, model, migration, form request, policy, job, service class | `laravel-best-practices`, `laravel-conventions` | `search-docs` (Laravel version-specific syntax) |
-| Eloquent query, N+1, slow query, eager loading | `database-optimization`, `eloquent-best-practices` | `database-query` (read-only verification), `database-schema` (before migrations) |
-| Filament resource, page, widget, relation manager | `cms-development` | `search-docs` (Filament), `list-artisan-commands` |
-| Writing or fixing Pest/PHPUnit tests | `pest-testing`, `backend-testing` | — |
-| Timezone-aware scheduling, date conversion | `handling-timezones` | `search-docs` |
-| Multi-tenant context, tenant models, tenant migrations | `tenancy-handling` | `search-docs` |
-| Horizon queue config, supervisors, dashboard | `configuring-horizon` | `search-docs` |
-| External API, OAuth, webhook, service client | `service-integration` | — |
-| Merge conflict resolution | `resolving-merge-conflicts` | — |
-| Dependency update, vulnerability, advisory | `dependency-audit` | — |
-| Debugging a bug or unexpected behavior | `systematic-debugging` | `browser-logs`, `database-query` |
+## Selection rules
 
-### Backend — API Design
+- Explicit and mandatory triggers (`MUST`, `always invoke`, exact command names)
+  outrank general semantic matches.
+- Specific skills outrank broad skills. For example, a Pest test task selects a
+  Pest skill before a general PHP skill.
+- Multiple domains may match, but plausibility alone is not enough. Every loaded
+  skill must have a concrete role in the task.
+- Do not select `skill-orchestration` again after routing has started.
+- Do not execute any discovered skill's bundled scripts during discovery.
+- If two skills conflict, apply the more specific instruction unless a global or
+  repository instruction has higher authority.
+- If an unresolved ambiguity would materially change the work, ask the user.
+- If no skill matches, continue with global and repository instructions only.
 
-| Task Signal | Skills to Load | MCP Route |
-|-------------|---------------|-----------|
-| REST endpoint, controller, API resource, request validation | `api-endpoint-development` | `search-docs`, `database-schema` |
-| Lego module (auth, notifications, media, payments, etc.) | `lego-modules` | — |
-| Sonic / Slack endpoint announcement | `sonic-notification` | — |
+## Catalog validation
 
-### Frontend — Vue / Nuxt / PrimeVue
+Run this after adding, moving, renaming, or removing skills:
 
-| Task Signal | Skills to Load | MCP Route |
-|-------------|---------------|-----------|
-| Any Vue component or page | `base-components` | — |
-| PrimeVue wrapper, theme, pass-through | `primevue` | — |
-| Form with validation, Zod schema, maska | `form-patterns`, `zod-schemas` | — |
-| Pinia store | `pinia-patterns` | — |
-| Data fetching, useFetch, useAsyncData, SSR/ISR | `nuxt-data-fetching` | — |
-| Nuxt config, runtime vars, routeRules | `nuxt-config` | — |
-| Nuxt module (@nuxt/fonts, @nuxt/icon, @sentry, color-mode) | `nuxt-ecosystem` | — |
-| Nuxt layer creation or boundaries | `nuxt-layers` | — |
-| TypeScript typing, generics, defineProps | `typescript-patterns` | — |
-| Performance, bundle size, reactivity bottleneck | `senior-frontend` | — |
-| Error boundary, Sentry capture, error states | `error-handling` | — |
-| Tailwind utility classes, responsive layout | `tailwindcss` | — |
-| Accessibility, WCAG, ARIA, keyboard nav | `accessibility` | — |
-| Responsive layout, container queries, touch | `responsive-design` | — |
-| SCSS mixins, variables, typography | `scss-globals` | — |
-| Meta tags, sitemap, Open Graph, Core Web Vitals | `seo` | — |
-| Figma design → component implementation | `figma` | — |
-| New AppXxx base component, compound pattern | `component-library` | — |
-| High-design-quality UI, landing page, beautification | `frontend-design` | — |
-| Vitest unit test for component/composable/store | `unit-testing` | — |
-| Playwright E2E test | `playwright` | — |
+```bash
+python3 <skill-directory>/scripts/discover_skills.py --check
+```
 
-### Frontend — API Consumption
+Validation fails for broken symlinks, unreadable or invalid frontmatter, missing
+`name`/`description`, and duplicate skill names. A successful scan proves only
+that skills are discoverable; task selection remains a semantic agent decision.
 
-| Task Signal | Skills to Load | MCP Route |
-|-------------|---------------|-----------|
-| Fetching from backend, useApiModel, pagination, CRUD | `api-patterns` | — |
-| Auth flow, route protection, session, @sidebase/nuxt-auth | `auth-patterns` | — |
+## Why discovery is dynamic
 
-### Cross-Cutting
-
-| Task Signal | Skills to Load | MCP Route |
-|-------------|---------------|-----------|
-| Git commit, push, branch, stage, MR | `git-actions` | — |
-| GitLab MR fetch, apply diff, resolve comments | `gitlab-actions` | — |
-| Worktree setup, cleanup, switch | `worktree-actions` | — |
-| Security audit of a PR or code change | `security-audit-light`, `php-best-practices` | — |
-| Review / audit / sanity-check a plan or PR | `scrutinize` | — |
-| Codebase audit, improvement plan, roadmap | `improve` | — |
-| Architecture decision, trace state/feedback/blast-radius | `systems-thinking` | — |
-| TDD workflow (RED-GREEN-REFACTOR) | `test-driven-development` | — |
-| Database diagram, DBML, ER diagram | `creating-database-diagrams` | — |
-| ClickUp task management | `clickup` | — |
-| Project documentation / DOX hierarchy | `dox` | — |
-| Concise commit message | `caveman-commit` | — |
-
-## MCP Quick Reference
-
-| MCP Tool | When to Use |
-|----------|-------------|
-| `search-docs` | **Before writing any framework code.** Always. Version-specific syntax for Laravel, Filament, etc. |
-| `database-schema` | Before writing migrations or models — inspect table structure |
-| `database-query` | Read-only query verification — instead of raw SQL in tinker |
-| `browser-logs` | Debug frontend errors and exceptions |
-| `get-absolute-url` | Before sharing any project URL with the user |
-| `list-artisan-commands` | Discover available Filament/Artisan commands |
-| `herd` tools | Site management, PHP version, service control |
-
-## Rules
-
-- **Global principles come first.** SYSTEM.md and AGENTS.md are the foundation — think before acting, systems thinking, minimal changes, verification. Apply them on every task before loading any skill. Skills add domain expertise on top; they never override these principles.
-- **Skills are layered, not leading.** A skill provides how-to detail for a specific domain. The decision of *what* to do and *whether* to do it follows global principles first.
-- **Load before acting.** Never start implementation without checking the matrix.
-- **Multiple domains are normal.** A task like "add a Filament form with API validation" hits both backend and frontend rows — load all matching skills.
-- **`search-docs` is mandatory** before writing Laravel or Filament code. Do not rely on memory for version-specific syntax.
-- **Skip skills that don't match.** Do not load skills speculatively — only those the matrix identifies.
-- **When no skill matches**, global principles alone are sufficient — proceed without forcing a skill.
+A static matrix drifts whenever a skill is installed, removed, renamed, or kept
+in a private symlinked namespace. Dynamic discovery keeps routing aligned with
+the actual filesystem while loading only the skill bodies needed for the task.
