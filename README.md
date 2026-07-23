@@ -28,6 +28,7 @@ behavioral bedrock — project instructions can add to it but never weaken it.
 | Principle | What it enforces |
 |-----------|-----------------|
 | **Think Before Acting** | Understand the problem, inspect existing code, identify assumptions, choose the simplest solution. Ask when missing info — never guess. |
+| **Capability Routing** | Identify applicable skills and tools, load the smallest sufficient set, and never assume unavailable capabilities. |
 | **Systems Thinking** | Before modifying code, understand **State** (who owns truth), **Feedback** (how correctness is verified), and **Blast Radius** (what could break). |
 | **Planning** | Non-trivial work must present: `Plan · Assumptions · Tradeoffs · Verification`. Break large work into incremental, verifiable steps. |
 | **Implementation** | Small focused changes, readable code, existing patterns, explicit behavior, composition over abstraction. No speculative features, no premature optimization. |
@@ -46,8 +47,8 @@ rulebook — the process, conventions, and guardrails.
 
 **Core workflow** (every non-trivial task):
 
-```
-1. Understand → 2. Plan → 3. Implement → 4. Verify → 5. Summarize
+```text
+1. Understand → 2. Route → 3. Plan → 4. Implement → 5. Verify → 6. Summarize
 ```
 
 **Key rules:**
@@ -55,6 +56,7 @@ rulebook — the process, conventions, and guardrails.
 | Rule | What it does |
 |------|-------------|
 | **Repository Awareness (DOX)** | Before architectural decisions, walk the doc hierarchy: Child `AGENTS.md` → Parent → Root → `CLAUDE.md` → other docs. Nearest doc wins. |
+| **Skill and Tool Routing** | Use dynamic skill discovery, load the smallest sufficient set, and select only currently available tools. |
 | **Minimal Changes** | Only what the request requires. No future-proofing, no single-use abstractions, no unrelated refactors, no "cleanup" of adjacent code. Every modified line traces to the request. |
 | **Verification by type** | Bug fix: reproduce → fix → verify. Refactor: preserve behavior, verify before & after. Feature: verify expected behavior, ensure no regressions. |
 | **Documentation (DOX)** | Docs evolve with architecture. Update existing before creating new. Child `AGENTS.md` only for meaningful architectural boundaries. |

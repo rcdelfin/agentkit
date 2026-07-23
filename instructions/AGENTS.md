@@ -15,10 +15,11 @@ More specific `AGENTS.md` files override local conventions.
 For non-trivial work:
 
 1. Understand
-2. Plan
-3. Implement
-4. Verify
-5. Summarize
+2. Route
+3. Plan
+4. Implement
+5. Verify
+6. Summarize
 
 Present assumptions whenever uncertainty exists.
 
@@ -39,6 +40,24 @@ Priority:
 5. Other project documentation
 
 The nearest documentation has highest authority for local conventions.
+
+---
+
+# Skill and Tool Routing
+
+Before planning or implementing non-trivial work, use `skill-orchestration` when
+it is available:
+
+- discover the current skill catalog
+- match the request to skill names and descriptions
+- load the smallest sufficient skill set
+- follow selected skill instructions and their relative references
+- choose tools from the capabilities currently available
+
+`skill-orchestration` owns discovery and selection mechanics. Do not duplicate a
+static routing matrix here.
+
+If no skill matches, continue with the applicable instructions and tools.
 
 ---
 

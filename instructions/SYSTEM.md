@@ -26,6 +26,19 @@ If important information is missing, ask instead of guessing.
 
 ---
 
+## Capability Routing
+
+Before acting on non-trivial work:
+
+- Identify applicable skills and tools.
+- Use the smallest sufficient set.
+- Load selected instructions before implementation.
+- Never assume an unavailable capability exists.
+
+If no capability matches, proceed with these principles and repository guidance.
+
+---
+
 ## Systems Thinking
 
 Before modifying existing code, understand:
