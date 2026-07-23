@@ -169,17 +169,6 @@ Just tell your agent:
 
 ### Other Skills
 
-**LangGraph workflow** — official skills from [langchain-ai](https://github.com/langchain-ai/langchain-skills) for building agent workflows on [LangGraph](https://github.com/langchain-ai/langgraph):
-
-| Skill | What it does |
-|-------|-------------|
-| [langgraph-fundamentals](skills/langgraph-fundamentals/) | StateGraph, state schemas, nodes, edges, reducers — any LangGraph code |
-| [langgraph-persistence](skills/langgraph-persistence/) | Checkpointing, conversation memory, time-travel, durable state |
-| [langgraph-human-in-the-loop](skills/langgraph-human-in-the-loop/) | Interrupts, approvals, pausing for human review |
-| [langgraph-cli](skills/langgraph-cli/) | Scaffold, dev, build, and deploy LangGraph apps |
-
-**General skills:**
-
 | Skill | What it does |
 |-------|-------------|
 | [impeccable](https://www.skills.sh) | Production-grade frontend design & iteration |
@@ -229,7 +218,6 @@ EOF
 │   └── RTK.md                 ← RTK token-killer reference (optional)
 └── skills/                    ← skill library (auto-discovered)
     ├── tweak/                 ← change planning (featured)
-    ├── langgraph-*/           ← LangGraph workflow skills (official, ×4)
     ├── impeccable/            ← frontend design (skills.sh)
     ├── investigate/           ← systematic debugging
     ├── scrutinize/            ← code review & second opinions

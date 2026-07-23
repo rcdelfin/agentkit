@@ -109,11 +109,43 @@ git commit -m "fix(scope): TICKET-ID address MR review — <short summary>" \
 env -u GITLAB_ACCESS_TOKEN git push
 ```
 
+### 6. Reply to Each Finding and Resolve
+
+After pushing, **close the loop on the MR**. For every finding thread, post a
+note explaining the resolution, then mark the thread resolved. This is how the
+AI Assistant and human reviewers see the disposition of each item — silent fixes
+leave findings looking unaddressed.
+
+For each thread in the MR (`/merge_requests/:iid/discussions`):
+
+| Disposition | When | Comment content |
+|---|---|---|
+| **Accepted** | Fix matches the suggestion | "Fixed in `<short-sha>`. <one line on what changed>" |
+| **Accepted with adjustment** | Fix implements the intent differently | "Fixed in `<short-sha>` with a documented deviation. <what you did instead, and WHY>" |
+| **Partially accepted** | Only part of the suggestion applied | "Partially applied in `<short-sha>`. <what was done, what was skipped, and why>" |
+| **Not accepted** | Suggestion rejected | "Not applying. <rationale — false positive, out of scope, or risk>" |
+
+Post via `POST /projects/:id/merge_requests/:iid/discussions/:discussion_id/notes`,
+then mark resolved via `PUT .../discussions/:discussion_id` with `resolved=true`.
+
+Rules:
+- **Always name the commit SHA** so reviewers can diff-verify.
+- **Deviations MUST be explained** — if you knowingly do the opposite of the
+  suggestion (e.g. revert to `env()` after `config()` was suggested), state the
+  reason in the note. An unexplained deviation looks like a mistake, not a
+  decision.
+- **Don't resolve threads you didn't address** — if a finding is skipped
+  intentionally, comment why but leave it open for the human author.
+- **Re-resolve only after a push** — resolving before pushing makes the fix
+  untraceable if the push fails.
+
 ## Pitfalls
 
 - **Stale `GITLAB_ACCESS_TOKEN` env var** — a wrapper or old config may inject an expired token that overrides `glab auth login`. Always prefix glab commands with `env -u GITLAB_ACCESS_TOKEN` to use the config-stored token.
 - **AI Assistant severity ≠ must-fix** — review each suggestion critically. Low-severity items (style, DRY) are often worth fixing but don't change behavior. High/Medium (correctness, edge cases) should always be addressed.
 - **Don't resolve threads on GitLab** — this skill is local-only. The MR author resolves threads after verifying the push, or the AI Assistant re-reviews automatically on new pushes.
+- **Except:** when this skill *does* reply + resolve threads (Step 6), do it only
+  for findings you actually addressed, always citing the fix commit SHA.
 - **Duplicate code across request/resource files** — the AI Assistant frequently flags duplication. Check if a `Concerns/` trait pattern already exists in the codebase before creating a new abstraction.
 - **Inline code suggestions may not compile** — the AI Assistant's snippets are illustrative. Always adapt to the actual code context, don't paste blindly.
 
@@ -123,4 +155,6 @@ env -u GITLAB_ACCESS_TOKEN git push
 - [ ] Pint formatting passes
 - [ ] Affected tests pass
 - [ ] Commit pushed to MR source branch
+- [ ] Each finding has a posted note on its discussion thread with the resolution (accepted / adjusted / partial / rejected + commit SHA)
+- [ ] Addressed threads marked resolved
 - [ ] AI Assistant re-reviews on push (automatic on GitLab Premium+)
