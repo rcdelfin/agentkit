@@ -1,152 +1,267 @@
 ---
 name: systems-thinking
-description: Apply systems thinking to every engineering decision — trace state ownership, feedback loops, and deletion blast radius before writing, reviewing, or debugging code. Integrates existing skills (debugging, code review, security audit, planning) into a unified systems lens.
+description: Apply a deeper systems lens when state ownership, correctness feedback, or change blast radius is unclear. Use for cross-boundary changes, architecture work, difficult debugging, and reviews of AI-generated code involving hidden coupling; the core lens already applies through SYSTEM.md.
 category: software-development
 tags: [systems-thinking, architecture, debugging, code-review, planning, design]
 ---
 
 # Systems Thinking for Software Engineering
 
+Use this skill to deepen the systems-thinking principle in
+`../../instructions/SYSTEM.md`. The canonical instructions remain authoritative;
+this skill adds an operational method and does not replace the normal workflow.
+
+## Conceptual Foundation
+
+A system is not merely a collection of parts. It is the pattern of how those
+parts affect one another over time. A locally correct component can still make
+the whole system incoherent when ownership, feedback, or dependencies are wrong.
+
+Following Peter Naur's idea of programming as theory building, the code is not
+the complete program. The maintained theory is the understanding of:
+
+- which parts exist and how they connect
+- why those connections and boundaries were chosen
+- how data and effects move through the system over time
+- what changes, fails, or disappears when one part is altered
+
+Code is an expression of that theory. AI can generate the expression, but that
+does not establish understanding or correctness. Generated code therefore
+remains a proposal to inspect, understand, and verify.
+
+Unlike a deterministic compiler, an LLM does not guarantee a correct
+translation from intent to implementation. It may produce strong boilerplate
+while quietly missing a business rule, race, security boundary, or failure path.
+This uneven capability is the **jagged frontier**. Systems judgment means knowing
+which output is routine and which output requires deeper scrutiny.
+
+> AI can reduce typing. It does not remove responsibility for the system.
+
 ## When to Load
 
-Load this skill when:
-- Starting a new feature or refactor — "design before you prompt"
-- Debugging a mysterious failure — trace the system, not just the code
-- Reviewing a PR — check for systems-level concerns (state leaks, blind feedback, hidden coupling)
-- Planning an architecture change — map blast radius before touching anything
-- Auditing an AI-generated codebase — the jagged frontier assessment
-- User says "trace this", "map the system", "what's the blast radius", "where does state live"
+Load this skill when one or more of these are true:
 
-## Core Framework
+- State crosses a database, cache, queue, session, filesystem, or external API.
+- A change spans multiple components or alters an architectural boundary.
+- A failure involves stale data, races, retries, asynchronous work, or unclear
+  ownership.
+- A review needs to trace hidden coupling or transitive impact beyond the diff.
+- AI-generated code is substantial enough that its system role is not yet
+  understood.
+- The user asks where state lives, how correctness is known, or what the blast
+  radius is.
 
-> **AI replaces typing. It doesn't replace thinking in systems.**
+Do not load it only to restate the core lens for a small, localized change whose
+state, feedback, and blast radius are already clear. Capability routing should
+still use the smallest sufficient skill set.
 
-Based on Hak's systems thinking thesis and Peter Naur's "Programming as Theory Building" (1985):
-The code is just the shadow — the real program is the mental model in your head. AI generates the shadow, but you must build the theory.
+## Core Lens
 
-### The Three Questions
+Before modifying existing code, answer only as deeply as the risk requires.
+These questions should be explainable before implementation; verification still
+requires appropriate evidence afterward.
 
-Before writing, reviewing, or debugging ANY change, answer these three:
+### State — What owns the source of truth?
 
-**1. Where does state live?**
-Who owns the truth? Database, cache, session, filesystem, external API? If two pieces each think they own it, you have a bug — you just haven't triggered it yet.
+Identify:
 
-**2. Where does feedback live?**
-What tells you the system is working or not? Logs, metrics, error tracking, health checks, user reports? If nothing tells you, the system is pretending to work.
+- the authoritative owner
+- who can read and write it
+- copies such as caches, projections, or client state
+- synchronization, consistency, and lifecycle boundaries
+- how the state changes over time
 
-**3. What breaks if I delete this?**
-Can you trace the blast radius of any component in your head before touching it? Maps, services, jobs, listeners, queues, webhook subscribers — trace them all.
+Multiple representations are not automatically multiple owners. The important
+question is which representation is authoritative and how the others converge.
+If two components independently believe they own the same truth, treat that as a
+latent defect until the ownership contract proves otherwise.
 
-### The Deletion Test
+### Feedback — How do we know the system is working?
 
-Pick any component and ask: "If I delete this, what breaks and how badly?"
-- If you can't answer, you don't understand the system — study first, then act.
-- This is the litmus test for whether you've built the theory or just accepted the shadow.
+Distinguish two forms of feedback:
 
-## Integration with Existing Skills
+- **Development evidence:** tests, type checks, linting, compilation, and runtime
+  validation that verify the change.
+- **Operational signals:** errors, logs, metrics, alerts, health checks, and
+  user-visible outcomes that reveal production behavior.
 
-| When you… | Load this + existing skill | Systems thinking adds |
-|---|---|---|
-| Debugging a bug | `systems-thinking` + `systematic-debugging` | Trace state ownership to find latent bugs, map feedback gaps causing silent failures |
-| Reviewing a PR | `systems-thinking` + `requesting-code-review` | Check for state leaks, missing feedback, hidden coupling, blast radius not considered |
-| Writing a plan | `systems-thinking` + `writing-plans` or `plan` | Map component boundaries first; mark where state lives and feedback surfaces in the plan |
-| Security audit | `systems-thinking` + `code-security-audit` | Trace auth boundary ownership, feedback for breaches, blast radius of a compromise |
-| Spec-driven dev | `systems-thinking` + `openspec` | Add failure modes and state diagram to the spec |
-| Validating an idea | `systems-thinking` + `spike` | Ask the three questions before building the spike — targets the experiment |
-| Subagent work | `systems-thinking` + `subagent-driven-development` | Include the three questions in delegation context so subagents trace the system too |
+Identify failures that may be silent, swallowed, delayed, or misleading. Do not
+add observability speculatively, but do not call a system reliable when material
+failure modes have no visible signal.
 
-## Workflows
+### Blast Radius — What breaks if this changes or disappears?
 
-### Workflow A: Design Before You Prompt
+Trace:
 
-When starting a new feature or significant change:
+- direct callers and dependents
+- data contracts and side effects
+- asynchronous consumers and external integrations
+- behavior over retries, failures, and partial completion
+- migration, compatibility, rollback, and deletion consequences
 
-1. **Draw the system** — on paper or markdown, map:
-   - Components (services, controllers, models, jobs, listeners)
-   - State boundaries (database tables, Redis keys, external APIs)
-   - Data flows (arrows between components)
-   - Feedback loops (logs, events, webhooks, notifications)
-2. **Answer the three questions** — write them down
-3. **Run the deletion test** on each new component
-4. **Write the spec** (load `openspec` or `writing-plans`) with the system map embedded
-5. **Prompt the AI** — now you know what to build, not just how to prompt
+The deletion test—"If I delete this, what breaks and how badly?"—is a practical
+way to expose missing theory. It is not the only blast-radius test: a component
+can remain present while a changed contract breaks its dependents.
 
-### Workflow B: Debugging with Systems Thinking
+If the relevant blast radius cannot be explained, investigate before modifying.
+Do not guess across an unknown boundary.
 
-When a bug report comes in and `systematic-debugging` alone isn't working:
+## Working with AI-Generated Code
 
-1. **Map the state** — trace every place the relevant data lives. Is there a stale cache? Race condition between two state owners? Eventual consistency delay?
-2. **Map the feedback** — does the bug reach logs? Error tracking? User-facing errors? If it's silent, that's a separate system failure.
-3. **Trace the blast radius** — what else depends on the failing component?
-4. **Fix the system, not just the symptom** — a race condition fix without adding a state owner or a cache with TTL isn't a fix.
-5. **Add the missing feedback** — if this bug was silent, add monitoring so the next one isn't.
+Treat comprehension as part of correctness. Shipping generated code whose role,
+assumptions, and effects cannot be explained creates **comprehension debt**.
 
-### Workflow C: Code Review with Systems Thinking
+For every meaningful generated change:
 
-Before approving any PR (add these after `requesting-code-review` checks pass):
+1. Trace the actual code path instead of accepting plausible-looking output.
+2. Explain why the approach fits existing ownership and boundaries.
+3. Identify alternatives and why they were rejected.
+4. Inspect edge cases, business rules, authorization, concurrency, and failure
+   paths according to risk.
+5. Verify with evidence independent of the model that produced the code.
 
-1. **State check** — does this change introduce a second owner for state that already has an owner? Does it assume state is fresh when it might be stale?
-2. **Feedback check** — does this change add new failure modes without corresponding logs/metrics? Can you tell if this new code is working in production?
-3. **Deletion check** — if someone deletes this new method/class/service tomorrow, what breaks? Is it obvious from the code?
-4. **AI-generated code check** — if AI wrote any part of this:
-   - Did the author verify correctness, not just accept output?
-   - Are there security vulnerabilities the model might have quietly introduced?
-   - Does the author demonstrate understanding (comments, alternative decisions considered)?
+Do not infer system quality from generated volume, speed, or local elegance. AI
+can make each individual piece look reasonable while the whole remains
+incoherent.
 
-### Workflow D: AI-Generated Code Audit
+## Deliberate Systems Practices
 
-When auditing a codebase built primarily with AI tools (Lovable, Bolt, Cursor, Claude Code):
+The source transcript recommends four practices for building the theory that AI
+cannot supply on its own. Apply them proportionally rather than creating
+mandatory artifacts for every edit.
 
-1. **Find the single-source-of-truth violations** — AI tools tend to duplicate state logic across files. Search for redundant caching, duplicate database writes, conflicting validations.
-2. **Find the feedback gaps** — AI rarely adds error handling, logging, or monitoring. Search for bare `try/catch` with empty blocks, missing `logger`, missing health check endpoints.
-3. **Find the coupling** — AI-generated code often puts everything in one file (the "7000-line-file" anti-pattern). Check for tight coupling between unrelated concerns.
-4. **Run the deletion test on every integration point** — webhook receivers, queue workers, third-party API clients. These are where AI-generated code fails most.
-5. **Document findings** in the project's CLAUDE.md or CONTEXT.md so the next agent doesn't repeat the same patterns.
+### 1. Design before prompting
 
-## The Jagged Frontier Assessment
+For a complex feature, sketch the relevant components, data flows, state owners,
+and failure surfaces before asking for implementation. Use a short list or prose
+when that is sufficient; draw a diagram when interactions over time would
+otherwise remain unclear.
 
-Harvard's "jagged frontier" — AI is sharp in some areas and dull in others. For each task, rate:
+### 2. Use specifications as scaffolding
 
-| Dimension | AI is good at | AI is bad at | You must verify |
-|---|---|---|---|
-| Boilerplate | CRUD routes, migrations, form fields | Edge cases, error paths, state transitions | Validation logic, error handling |
-| Patterns | Standard design patterns, framework conventions | Novel architecture, cross-cutting concerns | System integration, coupling |
-| Testing | Unit tests for simple functions | Integration tests, race condition tests | State-dependent tests, async behaviour |
-| Security | Common vulnerability patterns | Business logic flaws, auth boundaries | Authorization, data ownership |
+Before implementation, establish the what and why:
 
-## The New Literacy
+- problem and intended outcome
+- constraints and ownership boundaries
+- success criteria
+- important failure modes
 
-In the age of agentic engineering:
-- **Knowing where the jagged frontier sits** — what the model nails vs what it quietly gets wrong — is now a core developer skill
-- **Spec-driven workflows, coding agents, agent harnesses** are the stack now
-- **Generalists who can hold the whole system in their head** have the advantage — AI handles depth in any lane, but can't see the big picture
+A short plan may be enough. Use a formal specification only when task complexity
+or repository guidance warrants one.
 
-## Connection to Harness Engineering
+### 3. Run the deletion test
 
-The three questions map directly to the harness engineering layers (Cole Medin / Archon):
+Choose each important component or integration point and ask what would fail if
+it disappeared. An unknown answer defines the next investigation step; it is not
+permission to guess.
 
-| Systems Thinking Question | Harness Engineering Equivalent |
-|---|---|
-| Where does state live? | Built-in layer vs AI layer — who owns the context? |
-| Where does feedback live? | Hooks (post-edit lint, stop validation), sensors (test results, review agents) |
-| What breaks if I delete this? | Blast radius of removing a skill, hook, or MCP server from the AI layer |
+### 4. Study generated output
 
-The "feed-forward loop" from harness engineering (session failures → evolving principles → next session's guardrails) is systems thinking applied to agent context management. See [[pages/harness-engineering-cole-medin]], [[glossary/harness-engineering-layers]], [[glossary/agent-hooks-and-sensors]].
+Require a walkthrough of meaningful generated code, challenge its assumptions,
+and compare alternatives. For deliberate learning, reconstructing a small piece
+without generation can expose whether the underlying model is actually
+understood. This is a training practice, not a required artifact for every task.
 
-## References
+## Aligned Workflow
 
-- LLM wiki: pages/systems-thinking-ai-age, glossary/systems-thinking, glossary/programming-as-theory-building
-- `systematic-debugging` — 4-phase debugging skill
-- `requesting-code-review` — pre-commit review skill
-- `code-security-audit` — OWASP security audit skill
-- `writing-plans` — implementation planning skill
+Follow the canonical workflow while applying the systems lens inside it:
 
-## In the Wild
+1. **Understand** — inspect applicable instructions and the relevant code path.
+   Build the minimum theory needed to explain interactions over time.
+2. **Route** — use the current skill catalog and choose the smallest sufficient
+   set of skills and tools.
+3. **Plan** — state `Plan`, `Assumptions`, `Tradeoffs`, and `Verification` for
+   non-trivial work. Include the relevant system map and alternatives; divide
+   large work into incremental, verifiable steps.
+4. **Implement** — make the smallest correct change, preserve existing ownership
+   and contracts, and avoid speculative abstractions or unrelated cleanup.
+5. **Verify** — use the strongest practical evidence and check affected
+   boundaries, not only the edited unit.
+6. **Summarize** — report the change, evidence, remaining risk, and anything that
+   could not be verified.
 
-This skill's framework is baked into Pi's global AGENTS.md (`~/.pi/agent/AGENTS.md`):
-- **Rule 1** = Systems Thinking (three questions + deletion test)
-- **Rule 5** = Stop validation (don't trust "done" signal)
-- **Rule 6** = Feed-forward (every failure evolves context)
-- **Rule 4** = DOX breadcrumbs (document durable boundaries)
+Skill selection and composition belong to `skill-orchestration`; do not maintain
+a static integration matrix here. Pair this lens only with skills selected from
+the current catalog when the task actually requires them.
 
-If you're working in a Pi coding agent session, these rules are already active — this skill adds the deeper workflows (Debugging, Code Review, AI Code Audit) and the jagged frontier assessment.
+## Task-Specific Use
+
+### Debugging
+
+- Trace every relevant representation of the failing state.
+- Find the first point where actual behavior diverges from expected behavior.
+- Check whether retries, caching, ordering, or eventual consistency explain the
+  divergence.
+- Find feedback gaps that allowed the failure to remain hidden.
+- Fix the root cause, then verify the affected boundary and regression path.
+
+### Review
+
+- Read the code path, not only the diff.
+- Check whether ownership or contracts changed implicitly.
+- Confirm new failure modes have proportionate verification or observability.
+- Challenge generated code at the jagged frontier rather than reviewing every
+  line with equal intensity.
+- Report only actionable findings supported by evidence.
+
+### Planning and Architecture
+
+- Define component boundaries and ownership before proposing abstractions.
+- Describe relevant interactions over time, including failure and recovery.
+- Compare alternatives and make compatibility, migration, rollback, and
+  verification costs explicit.
+- Prefer reversible, incremental changes over broad rewrites.
+
+## Lightweight Output
+
+For work where the systems analysis should be visible, use:
+
+```text
+Theory
+- Components and why they connect:
+- Relevant behavior over time:
+
+State
+- Source of truth:
+- Readers/writers:
+- Copies or consistency boundaries:
+
+Feedback
+- Development evidence:
+- Operational signals, if relevant:
+
+Blast Radius
+- Direct dependents:
+- Transitive or external impact:
+- Failure, rollback, or deletion consequence:
+
+Jagged Frontier
+- Routine output:
+- High-judgment areas requiring deeper verification:
+```
+
+Keep this private or collapse it into the normal plan when a separate artifact
+would add noise.
+
+## Guardrails
+
+- Do not create diagrams, specifications, monitoring, or documentation unless
+  they are needed by the task or represent a durable changed contract.
+- Do not turn every localized edit into an architecture exercise.
+- Do not treat tests as the only feedback mechanism or logs as a substitute for
+  verification.
+- Do not mistake a plausible explanation from an AI for independent evidence.
+- Do not silently choose between materially different interpretations.
+- Do not claim completion without appropriate evidence.
+
+## Canonical References
+
+- Peter Naur, "Programming as Theory Building" (1985)
+
+Behavioral authority:
+
+- `../../instructions/SYSTEM.md` — behavioral principles and systems-thinking
+  contract
+- `../../instructions/AGENTS.md` — global
+  Understand → Route → Plan → Implement → Verify → Summarize workflow
+- `../skill-orchestration/SKILL.md` — dynamic skill discovery and composition
