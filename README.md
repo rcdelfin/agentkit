@@ -203,7 +203,7 @@ repository.
 |-------|-------------|
 | [local-wiki](skills/local-wiki/) | Ingests source material into a governed local knowledge base |
 | [clickup](skills/clickup/) | Retrieves and triages ClickUp tasks |
-| [clickup-issue-workflow](skills/clickup-issue-workflow/) | Drives a ClickUp issue from intake through review |
+| [clickup-tweak-workflow](skills/clickup-tweak-workflow/) | Takes a ClickUp card (fix or feature) end-to-end: ingest → branch → understand → route → plan → implement & verify → review loop |
 | [mr-review](skills/mr-review/) | Fetches and resolves merge-request review feedback |
 | [find-skills](skills/find-skills/) | Discovers and installs skills from the ecosystem |
 | [openspec](skills/openspec/) | Runs artifact-driven change workflows |
