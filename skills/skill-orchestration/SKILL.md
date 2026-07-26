@@ -34,15 +34,21 @@ full skill bodies speculatively.
    contracts, not marketing summaries.
 4. **Choose the smallest sufficient set.** Prefer one primary workflow skill plus
    only the domain or verification skills required to complete the task.
-5. **Load before acting.** Read every selected `SKILL.md`. When it references a
+5. **Handle missing skills deliberately.** `skill-orchestration` only selects
+   installed / available skills. If no available skill covers a needed domain
+   capability, do not invent one. Ask the user whether to search / install a
+   skill. Only after approval, load **`find-skills`** to search, recommend, and
+   install; then rerun discovery from step 2. If the user declines, continue with
+   available skills and global / repository instructions.
+6. **Load before acting.** Read every selected `SKILL.md`. When it references a
    relative file, resolve it from that skill's directory.
-6. **Compose instructions.** Follow global rules first, then workflow skills,
+7. **Compose instructions.** Follow global rules first, then workflow skills,
    then domain-specific skills. A more specific matching skill controls its
    domain unless it conflicts with higher-level instructions.
-7. **Route tools.** Use directly available tools by their descriptions. For MCP
+8. **Route tools.** Use directly available tools by their descriptions. For MCP
    capabilities, search the MCP catalog when needed. Never invent an unavailable
    tool; selected skills may impose additional tool requirements.
-8. **Act and verify.** Implement the smallest correct change and run the strongest
+9. **Act and verify.** Implement the smallest correct change and run the strongest
    applicable checks.
 
 ## Selection rules
@@ -55,6 +61,8 @@ full skill bodies speculatively.
   skill must have a concrete role in the task.
 - Do not select `skill-orchestration` again after routing has started.
 - Do not execute any discovered skill's bundled scripts during discovery.
+- Do not install skills during routing. Install only through `find-skills`, only
+  after explicit user approval, then rerun discovery.
 - If two skills conflict, apply the more specific instruction unless a global or
   repository instruction has higher authority.
 - If an unresolved ambiguity would materially change the work, ask the user.
