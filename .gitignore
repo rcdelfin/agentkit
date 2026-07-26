@@ -8,3 +8,4 @@ skills/projects/
 .skill-lock.json
 
 .ruff_cache
+skills/clickup/scripts/__pycache__/
