@@ -1,6 +1,6 @@
 ---
 name: clickup-tweak-workflow
-description: "Take a ClickUp-tracked card end-to-end by ID (e.g. GYMED-100): ingest the card into the local wiki → classify & branch (feature/bugfix/hotfix) → understand (investigate for fixes, systems-thinking for features) → route domain skills via skill-orchestration → plan with tweak when non-trivial → implement & verify → push (no MR until asked) → wait for the ai_code_review pipeline → resolve every review thread. Uses the clickup, investigate, systems-thinking, skill-orchestration, tweak, git-actions, mr-review, and local-wiki skills. Trigger: a ClickUp-tracked card keyed by its ID (e.g. 'fix GYMED-100' or 'build GYMED-100')."
+description: "Use when fixing or building a ClickUp card ID (e.g. GYMED-100) end-to-end, including branch, verification, and MR review."
 metadata:
   version: "5.0.0"
   scope: "global"
@@ -13,13 +13,21 @@ standard flow: **Understand → Route → Plan → Implement → Verify → Ship
 skill orchestrates: **`clickup`** (fetch the card), **`local-wiki`** (persist it
 locally), **`investigate`** / **`systems-thinking`** (understand — type-
 dependent), **`skill-orchestration`** (route the domain skills the change needs),
-**`tweak`** (plan when non-trivial), **`git-actions`** (branch / commit / push /
-MR), and **`mr-review`** (drive the review-thread fix loop).
+**`tweak`** (plan when non-trivial), **`scrutinize`** (sanity-check risky plans /
+changes), **`git-actions`** (branch / commit / push / MR), and **`mr-review`**
+(drive the review-thread fix loop).
 
-**Scope:** any implementable card — a defect to fix, a feature to build, or a
-hotfix. Understand path depends on type: **Bugfix / Hotfix** → `investigate`
-(root cause; a ticket names a symptom, not the bug); **Feature** →
+**Scope:** any implementable ClickUp card — defect, feature, or hotfix.
+Understand path depends on type: **Bugfix / Hotfix** → `investigate` (root
+cause; a ticket names a symptom, not the bug); **Feature** →
 `systems-thinking` (state ownership, feedback loops, blast radius).
+
+## When to Use
+
+Use when the user gives a ClickUp task ID and wants the card implemented end to
+end in a GitLab-backed repo. Do not use for non-ClickUp work, review-only tasks,
+cards the user only wants summarized, or non-GitLab repos unless the workflow
+stops after local verification.
 
 ## Steps
 
@@ -67,6 +75,10 @@ hotfix. Understand path depends on type: **Bugfix / Hotfix** → `investigate`
      let it match from the catalog.
    - **Plan when needed** → if the change is non-trivial, plan it with
      **`tweak`** (proposal → specs → design → tasks) before implementing.
+   - **Scrutinize when needed** → after planning and before implementation, run
+     **`scrutinize`** for cross-boundary, risky, public-contract, security,
+     multiple-approach, or explicitly requested sanity-check work. Skip it for
+     trivial one-file fixes and routine docs/config changes.
 
 5. **Implement, then verify.** Build the change on the branch, then **verify
    before any push or MR** — run the project's tests / typecheck / lint (the
@@ -75,29 +87,34 @@ hotfix. Understand path depends on type: **Bugfix / Hotfix** → `investigate`
 6. **Do not open a merge request on your own.** Only create the MR — targeting
    the base from step 2 — when the user explicitly asks.
 
-7. **After the MR exists, wait for the `ai_code_review` pipeline.** It's injected
-   by an included CI template (so it won't appear in the repo's own
-   `.gitlab-ci.yml`); poll via `glab ci list` (filter by branch ref) or
-   `glab mr view <iid>`.
+7. **Check for `ai_code_review` after the MR exists.** If the pipeline exists,
+   wait for it using `glab ci list` (filter by branch ref) or `glab mr view <iid>`.
+   If no matching pipeline exists, record that the AI review gate is not
+   configured and do not poll indefinitely; inspect available CI/review status
+   instead.
 
-8. **Work through every unresolved review thread:** apply the fix (or, if a
-   comment isn't applicable, explain why). After each is fixed or addressed,
-   **resolve the thread and leave a comment** describing what was done.
-   - Run **`mr-review`** to fix locally → test → commit → push. **Fix locally
-     first, then resolve on GitLab** — never resolve a thread before its local
-     fix is pushed.
-   - Then, via `glab api`, reply in-thread with what was done and mark the
-     discussion `resolved=true`:
+8. **Work through every unresolved review thread:** run **`mr-review`**, which
+   owns local fixes, verification, replies, and resolution. Never resolve first.
+   Repeat after each push until no resolvable threads remain.
 
-     ```bash
-     env -u GITLAB_ACCESS_TOKEN glab api -X POST \
-       "projects/<project>/merge_requests/<iid>/discussions/<discussion_id>/notes" \
-       -f body="Fixed in <commit-sha>: <one line on what was done>"
+## Pitfalls
 
-     env -u GITLAB_ACCESS_TOKEN glab api -X PUT \
-       "projects/<project>/merge_requests/<iid>/discussions/<discussion_id>" \
-       -F resolved=true
-     ```
+- Never assume branch base, branch type, or MR creation is authorized.
+- Do not skip root-cause investigation for hotfixes because urgency increases
+  the cost of a wrong patch.
+- Do not push unverified code or resolve review threads before fixes are pushed.
+- Do not assume `ai_code_review` exists; record a missing gate instead of polling
+  forever.
+- Do not load every domain skill; route only skills required by touched code.
+- Do not use `scrutinize` as a substitute for tests or post-MR `mr-review`.
 
-   - Pushing triggers the AI to re-review, which may open new threads — repeat
-     step 8 until no unresolved threads remain.
+## Verification
+
+- [ ] Card and comments persisted in the governed local wiki.
+- [ ] Card type, branch name, and base confirmed before branching.
+- [ ] Required domain skills routed; non-trivial work planned with `tweak`.
+- [ ] Risky/non-trivial plan or change scrutinized, or skip was justified.
+- [ ] Tests, typecheck, lint, or strongest applicable checks pass.
+- [ ] MR created only when explicitly requested.
+- [ ] When present, AI review completed; otherwise missing gate recorded.
+- [ ] Every resolvable review thread fixed or explained, replied to, and resolved.

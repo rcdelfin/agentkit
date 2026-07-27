@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [debugging, troubleshooting, problem-solving, root-cause, investigation]
-    related_skills: [test-driven-development, writing-plans, subagent-driven-development]
+    related_skills: [test-driven-development, systems-thinking, skill-orchestration]
 ---
 
 # Systematic Debugging
@@ -31,6 +31,7 @@ If you haven't completed Phase 1, you cannot propose fixes.
 ## When to Use
 
 Use for ANY technical issue:
+
 - Test failures
 - Bugs in production
 - Unexpected behavior
@@ -39,6 +40,7 @@ Use for ANY technical issue:
 - Integration issues
 
 **Use this ESPECIALLY when:**
+
 - Under time pressure (emergencies make guessing tempting)
 - "Just one quick fix" seems obvious
 - You've already tried multiple fixes
@@ -46,6 +48,7 @@ Use for ANY technical issue:
 - You don't fully understand the issue
 
 **Don't skip when:**
+
 - Issue seems simple (simple bugs have root causes too)
 - You're in a hurry (rushing guarantees rework)
 - Someone wants it fixed NOW (systematic is faster than thrashing)
@@ -67,23 +70,21 @@ You MUST complete each phase before proceeding to the next.
 - Read stack traces completely
 - Note line numbers, file paths, error codes
 
-**Action:** Use `read_file` on the relevant source files. Use `search_files` to find the error string in the codebase.
+**Action:** Use `read` on relevant source files. Use `bash`/`symbol_search` to find the error and its callers.
 
-### 2. Reproduce Consistently
+### 2. Build a Tight Feedback Loop
 
-- Can you trigger it reliably?
-- What are the exact steps?
-- Does it happen every time?
-- If not reproducible → gather more data, don't guess
+Create one fast, deterministic command that fails on the exact symptom and
+passes after the fix. Prefer, in order: a focused test, HTTP/CLI repro, a
+small harness, then a scripted manual flow. Assert the wrong behavior, not
+merely "doesn't crash". If the issue is flaky, raise reproduction rate before
+forming theories.
 
-**Action:** Use the `terminal` tool to run the failing test or trigger the bug:
+**Action:** Run the loop at least once before proposing a fix:
 
 ```bash
-# Run specific failing test
 pytest tests/test_module.py::test_name -v
-
-# Run with verbose output
-pytest tests/test_module.py -v --tb=long
+# or: python scripts/repro_bug.py
 ```
 
 ### 3. Check Recent Changes
@@ -112,6 +113,7 @@ git log -p --follow src/problematic_file.py | head -100
 **BEFORE proposing fixes, add diagnostic instrumentation:**
 
 For EACH component boundary:
+
 - Log what data enters the component
 - Log what data exits the component
 - Verify environment/config propagation
@@ -130,24 +132,24 @@ THEN investigate that specific component.
 - Keep tracing upstream until you find the source
 - Fix at the source, not at the symptom
 
-**Action:** Use `search_files` to trace references:
+**Action:** Use `symbol_search` for identifiers or `bash`/`grep` for raw strings to trace references:
 
 ```python
 # Find where the function is called
-search_files("function_name(", path="src/", file_glob="*.py")
+grep -R "function_name(" src/ --include='*.py'
 
 # Find where the variable is set
-search_files("variable_name\\s*=", path="src/", file_glob="*.py")
+grep -R "variable_name[[:space:]]*=" src/ --include='*.py'
 ```
 
 ### Phase 1 Completion Checklist
 
 - [ ] Error messages fully read and understood
-- [ ] Issue reproduced consistently
+- [ ] Tight loop exists, was run, and asserts the exact symptom
 - [ ] Recent changes identified and reviewed
 - [ ] Evidence gathered (logs, state, data flow)
 - [ ] Problem isolated to specific component/code
-- [ ] Root cause hypothesis formed
+- [ ] Ranked root-cause hypotheses can be stated and tested
 
 **STOP:** Do not proceed to Phase 2 until you understand WHY it's happening.
 
@@ -157,15 +159,21 @@ search_files("variable_name\\s*=", path="src/", file_glob="*.py")
 
 **Find the pattern before fixing:**
 
+### 0. Minimize the Reproduction
+
+Remove inputs, callers, config, and steps one at a time, rerunning the tight
+loop after each removal. Done when removing any remaining element makes the
+loop pass.
+
 ### 1. Find Working Examples
 
 - Locate similar working code in the same codebase
 - What works that's similar to what's broken?
 
-**Action:** Use `search_files` to find comparable patterns:
+**Action:** Use `symbol_search` or `bash`/`grep` to find comparable patterns:
 
 ```python
-search_files("similar_pattern", path="src/", file_glob="*.py")
+grep -R "similar_pattern" src/ --include='*.py'
 ```
 
 ### 2. Compare Against References
@@ -192,17 +200,17 @@ search_files("similar_pattern", path="src/", file_glob="*.py")
 
 **Scientific method:**
 
-### 1. Form a Single Hypothesis
+### 1. Rank Falsifiable Hypotheses
 
-- State clearly: "I think X is the root cause because Y"
-- Write it down
-- Be specific, not vague
+- Generate 3–5 plausible causes and rank by likelihood plus cheapness to test.
+- State each prediction: "If X causes this, Y should be observable and Z should
+  change."
+- Try to disprove the highest-ranked hypothesis before changing production code.
 
 ### 2. Test Minimally
 
-- Make the SMALLEST possible change to test the hypothesis
-- One variable at a time
-- Don't fix multiple things at once
+- Use the smallest probe and change one variable at a time.
+- Don't fix multiple things at once.
 
 ### 3. Verify Before Continuing
 
@@ -258,11 +266,13 @@ pytest tests/ -q
 ### 5. If 3+ Fixes Failed: Question Architecture
 
 **Pattern indicating an architectural problem:**
+
 - Each fix reveals new shared state/coupling in a different place
 - Fixes require "massive refactoring" to implement
 - Each fix creates new symptoms elsewhere
 
 **STOP and question fundamentals:**
+
 - Is this pattern fundamentally sound?
 - Are we "sticking with it through sheer inertia"?
 - Should we refactor the architecture vs. continue fixing symptoms?
@@ -272,22 +282,6 @@ pytest tests/ -q
 This is NOT a failed hypothesis — this is a wrong architecture.
 
 ---
-
-## Debug Mantra (from absorbed skill)
-
-A four-step discipline absorbed from the `debug-mantra` skill. When a debugging session begins, recite the mantra block once (verbatim) in your first response, then apply the four steps in order. If the user says "skip the mantra," skip the recital but still apply the steps silently.
-
-> **Mantra:**
-> 1. **First is reproducibility.** Can the issue be reproduced reliably?
-> 2. **Know the fail path.** Debugger first; then source trace + knob enumeration; then in-code instrumentation.
-> 3. **Question your hypothesis.** What would disprove it?
-> 4. **Every run is a breadcrumb.** Cross-reference all of them.
-
-### Key additions to the four phases above
-
-**Falsification-first (extends Phase 3):** When a candidate root cause surfaces, run the **disproof first**. If the hypothesis survives attempted disproof, it's real. If it dies, you saved yourself from chasing a phantom. Always generate 3–5 ranked hypotheses rather than anchoring on the first plausible idea. Walk each hypothesis through the full symptom chain — if it doesn't explain the symptom end-to-end, refine or discard.
-
-**Breadcrumb ledger (cross-cutting):** Maintain a running ledger of every experiment in the session. Each entry: *what changed, what happened, what it ruled in or out.* When a new hypothesis surfaces, walk the entire ledger — the hypothesis must hold for **every** prior observation, not just the most recent. If any past run contradicts it, the hypothesis is wrong or incomplete. When in doubt, design the **single experiment** whose outcome is decisive, and run that next.
 
 ## Framework-Specific Pitfalls
 
@@ -314,6 +308,7 @@ $entityId = $user->entity?->id;     // Returns model->id or null
 **Why this happens:** Calling the relationship as a method (`entity()`) returns the Eloquent relationship instance (BelongsTo, HasMany, etc.). The nullsafe operator `?->` doesn't convert it to the model — it just short-circuits if the left side is null, but a relationship object is never null. Use dynamic property syntax (no parentheses) to get the actual related model.
 
 **When this surfaces:** Often appears as a two-step error:
+
 1. First error: `Call to undefined method User::ifrsEntity()` → developer renames to correct method name
 2. Second error: `Undefined property: BelongsTo::$id` → developer used method call syntax with `?->`
 
@@ -325,7 +320,7 @@ $entityId = $user->entity?->id;     // Returns model->id or null
 
 ### Python Debugging → `references/python-debugging.md`
 
-pdb REPL quick reference, debugpy remote attach (DAP), remote-pdb for terminal agents, Hermes process debugging (gateway, tui_gateway, _SlashWorker), pytest debugging tips, and common pitfalls (xdist, asyncio, ptrace).
+pdb REPL quick reference, debugpy remote attach (DAP), remote-pdb for terminal agents, pytest debugging tips, and common pitfalls (xdist, asyncio, ptrace).
 
 ### Node.js Debugging → `references/nodejs-debugging.md`
 
@@ -336,6 +331,7 @@ pdb REPL quick reference, debugpy remote attach (DAP), remote-pdb for terminal a
 ## Red Flags — STOP and Follow Process
 
 If you catch yourself thinking:
+
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "Add multiple changes, run tests"
@@ -374,53 +370,14 @@ If you catch yourself thinking:
 | **3. Hypothesis** | Form theory, test minimally, one variable at a time | Confirmed or new hypothesis |
 | **4. Implementation** | Create regression test, fix root cause, verify | Bug resolved, all tests pass |
 
-## Hermes Agent Integration
+## Tool Routing
 
-### Investigation Tools
+Use available tools, not copied framework names:
 
-Use these Hermes tools during Phase 1:
+- `read` for complete error/source context.
+- `bash` for tests, repros, git history, and narrow probes.
+- `symbol_search`/`module_report` for callers and structure when available.
+- `lsp_navigation` for definitions/references when activated.
 
-- **`search_files`** — Find error strings, trace function calls, locate patterns
-- **`read_file`** — Read source code with line numbers for precise analysis
-- **`terminal`** — Run tests, check git history, reproduce bugs
-- **`web_search`/`web_extract`** — Research error messages, library docs
-
-### With delegate_task
-
-For complex multi-component debugging, dispatch investigation subagents:
-
-```python
-delegate_task(
-    goal="Investigate why [specific test/behavior] fails",
-    context="""
-    Follow systematic-debugging skill:
-    1. Read the error message carefully
-    2. Reproduce the issue
-    3. Trace the data flow to find root cause
-    4. Report findings — do NOT fix yet
-
-    Error: [paste full error]
-    File: [path to failing code]
-    Test command: [exact command]
-    """,
-    toolsets=['terminal', 'file']
-)
-```
-
-### With test-driven-development
-
-When fixing bugs:
-1. Write a test that reproduces the bug (RED)
-2. Debug systematically to find root cause
-3. Fix the root cause (GREEN)
-4. The test proves the fix and prevents regression
-
-## Real-World Impact
-
-From debugging sessions:
-- Systematic approach: 15-30 minutes to fix
-- Random fixes approach: 2-3 hours of thrashing
-- First-time fix rate: 95% vs 40%
-- New bugs introduced: Near zero vs common
-
-**No shortcuts. No guessing. Systematic always wins.**
+For bug fixes, pair the process with `test-driven-development`: RED regression
+loop → root-cause fix → GREEN verification.

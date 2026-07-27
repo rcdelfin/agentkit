@@ -32,6 +32,21 @@ Fetch review feedback from a GitLab MR, understand each issue, fix it locally, v
 
 ### 1. Fetch MR Comments
 
+Prefer the bundled script — it handles auth (via `glab api`), severity parsing,
+and the resolvable-aware open/resolved check in one call:
+
+```bash
+python3 scripts/show_threads.py <group/project> <iid>          # all threads
+python3 scripts/show_threads.py <group/project> <iid> --open    # unresolved only
+```
+
+Resolve `scripts/...` against this skill's directory. Output:
+`STATUS  [SEVERITY]  @author  <first line>  <discussion-id>`. The AI
+review bot's informational "work complete" summary thread has no resolvable
+note and is skipped automatically.
+
+**Fallback** (no script, or debugging) — inline `glab api` + python:
+
 ```bash
 # Get all non-system notes from the MR
 env -u GITLAB_ACCESS_TOKEN glab api \
@@ -51,6 +66,7 @@ for n in notes:
 ```
 
 **Alternative** (if project path is unknown — auto-resolve from remote):
+
 ```bash
 REMOTE=$(git remote get-url origin)
 # SSH: git@gitlab.com:group/project.git → group%2Fproject
@@ -71,6 +87,7 @@ Parse each comment and classify by what action it requires:
 | **Informational / dismissed** | "Nice work", false positive, out of scope | Skip |
 
 Look for severity indicators the AI Assistant uses:
+
 - 🔴 **High** — likely a bug or security issue
 - 🟠 **Medium** — correctness edge case, should fix
 - 🟡 **Low** — code quality, DRY, style
@@ -128,24 +145,60 @@ For each thread in the MR (`/merge_requests/:iid/discussions`):
 Post via `POST /projects/:id/merge_requests/:iid/discussions/:discussion_id/notes`,
 then mark resolved via `PUT .../discussions/:discussion_id` with `resolved=true`.
 
+Prefer the bundled script — it does both calls and sidesteps the rtk-wrapper
+gotcha (building the URL in Python, not on the shell line):
+
+```bash
+python3 scripts/resolve_thread.py <group/project> <iid> <discussion_id> \
+  "Fixed in <sha>: <one line on what changed>"
+```
+
+**Inline** (the script wraps these two calls) — **inline the discussion ID
+literally** (see Pitfalls — shell variables in the URL path 404 under the rtk
+wrapper):
+
+```bash
+PROJ="group%2Fproject"
+glab api -X POST "projects/$PROJ/merge_requests/<iid>/discussions/<discussion_id>/notes" \
+  -f body="Fixed in <sha>: <one line>"
+glab api -X PUT "projects/$PROJ/merge_requests/<iid>/discussions/<discussion_id>" \
+  -F resolved=true
+```
+
+**Verify after** (system notes return `resolved: null`, so filter to
+resolvable notes — see Pitfalls):
+
+```bash
+glab api "projects/$PROJ/merge_requests/<iid>/discussions" | python3 -c "
+import sys, json
+for disc in json.load(sys.stdin):
+    notes = disc.get('notes', [])
+    findings = [n for n in notes if n.get('author',{}).get('username')=='dev_appetiser' and not n.get('system')]
+    if not findings: continue
+    open_notes = [n for n in notes if n.get('resolvable') and not n.get('resolved')]
+    print('OPEN ' if open_notes else 'RESOLVED ', disc['id'][:12])
+"
+```
+
 Rules:
+
 - **Always name the commit SHA** so reviewers can diff-verify.
 - **Deviations MUST be explained** — if you knowingly do the opposite of the
   suggestion (e.g. revert to `env()` after `config()` was suggested), state the
   reason in the note. An unexplained deviation looks like a mistake, not a
   decision.
-- **Don't resolve threads you didn't address** — if a finding is skipped
-  intentionally, comment why but leave it open for the human author.
-- **Re-resolve only after a push** — resolving before pushing makes the fix
+- **Don't silently resolve a rejected finding** — post the rationale in the
+  thread before marking it resolved.
+- **Resolve only after a push** — resolving before pushing makes the fix
   untraceable if the push fails.
 
 ## Pitfalls
 
 - **Stale `GITLAB_ACCESS_TOKEN` env var** — a wrapper or old config may inject an expired token that overrides `glab auth login`. Always prefix glab commands with `env -u GITLAB_ACCESS_TOKEN` to use the config-stored token.
+- **rtk wrapper mangles variable-interpolated `glab api` URLs** — putting the discussion ID in a shell variable (`$DID`) and interpolating it into the API path (`.../discussions/$DID/notes`) silently 404s. The wrapper treats the `%2F`-encoded project path or the interpolated segment as a filesystem path. **Always inline the full discussion ID literally in the URL string** — no shell variables in the path. Calling `glab api` inside a `bash` function with `local` vars fails the same way; use flat sequential inline calls instead. Never redirect `glab api` output to `/dev/null` during resolution — the 404 is silent and you'll believe the thread resolved when it didn't. Verify thread state after.
+- **System/auto notes return `resolved: null`, not `false`** — GitLab attaches non-resolvable system notes ("changed this line in version N of the diff", "added 1 commit") to discussion threads. A naive `all(n['resolved'] for n in notes)` check reports the thread as unresolved forever, because `None` is falsy. To check if a thread is actually open, filter to resolvable notes: `[n for n in notes if n.get('resolvable') and not n.get('resolved')]`. Empty → resolved.
+- **The AI review "summary" thread is not a finding** — the review bot posts one informational thread ("✅ AI Assistant's work is complete" with a file-change table) alongside the actual findings. It has no resolvable note; the resolvable-aware check above naturally skips it. Don't try to resolve it as a finding.
 - **AI Assistant severity ≠ must-fix** — review each suggestion critically. Low-severity items (style, DRY) are often worth fixing but don't change behavior. High/Medium (correctness, edge cases) should always be addressed.
-- **Don't resolve threads on GitLab** — this skill is local-only. The MR author resolves threads after verifying the push, or the AI Assistant re-reviews automatically on new pushes.
-- **Except:** when this skill *does* reply + resolve threads (Step 6), do it only
-  for findings you actually addressed, always citing the fix commit SHA.
 - **Duplicate code across request/resource files** — the AI Assistant frequently flags duplication. Check if a `Concerns/` trait pattern already exists in the codebase before creating a new abstraction.
 - **Inline code suggestions may not compile** — the AI Assistant's snippets are illustrative. Always adapt to the actual code context, don't paste blindly.
 
@@ -156,5 +209,4 @@ Rules:
 - [ ] Affected tests pass
 - [ ] Commit pushed to MR source branch
 - [ ] Each finding has a posted note on its discussion thread with the resolution (accepted / adjusted / partial / rejected + commit SHA)
-- [ ] Addressed threads marked resolved
-- [ ] AI Assistant re-reviews on push (automatic on GitLab Premium+)
+- [ ] Addressed threads marked resolved — confirm with `show_threads.py <project> <iid> --open` → "no open threads"
