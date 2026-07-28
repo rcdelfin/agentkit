@@ -9,9 +9,10 @@ Usage:
     python3 show_task.py GYMED-793 --json     # raw JSON from the API
 
 Environment:
-    Reads CLICKUP_API_TOKEN and CLICKUP_TEAM_ID from:
+    Reads CLICKUP_API_TOKEN (or CLICKUP_API_KEY) and CLICKUP_TEAM_ID from:
     1. Environment variables (preferred)
-    2. ~/.hermes/.env fallback
+    2. ~/.agents/.env (preferred file fallback)
+    3. ~/.hermes/.env (legacy fallback)
 
 Requires: Python 3.7+ (stdlib only — uses urllib, no pip deps)
 """
@@ -29,17 +30,23 @@ from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
+
 def get_credentials():
-    """Get ClickUp API token and team ID from env or ~/.hermes/.env."""
-    token = os.environ.get("CLICKUP_API_TOKEN", "")
+    """Get ClickUp API token and team ID from env, then ~/.agents/.env
+    (preferred) or legacy ~/.hermes/.env."""
+    token = os.environ.get("CLICKUP_API_TOKEN", "") or os.environ.get(
+        "CLICKUP_API_KEY", ""
+    )
     team_id = os.environ.get("CLICKUP_TEAM_ID", "")
 
     if token and team_id:
         return token, team_id
 
-    # Fallback: read from ~/.hermes/.env
-    env_file = Path.home() / ".hermes" / ".env"
-    if env_file.exists():
+    # Fallback: search candidate .env files (new home, then legacy).
+    candidates = [Path.home() / ".agents" / ".env", Path.home() / ".hermes" / ".env"]
+    for env_file in candidates:
+        if not env_file.exists():
+            continue
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line.startswith("#") or "=" not in line:
@@ -47,22 +54,31 @@ def get_credentials():
             key, _, value = line.partition("=")
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key == "CLICKUP_API_TOKEN" and not token:
+            if key in ("CLICKUP_API_TOKEN", "CLICKUP_API_KEY") and not token:
                 token = value
             elif key == "CLICKUP_TEAM_ID" and not team_id:
                 team_id = value
+        if token and team_id:
+            break
 
     if not token:
-        print("ERROR: CLICKUP_API_TOKEN not found in env or ~/.hermes/.env", file=sys.stderr)
+        print(
+            "ERROR: CLICKUP_API_TOKEN/CLICKUP_API_KEY not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if not team_id:
-        print("ERROR: CLICKUP_TEAM_ID not found in env or ~/.hermes/.env", file=sys.stderr)
+        print(
+            "ERROR: CLICKUP_TEAM_ID not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     return token, team_id
 
 
 # ── API ─────────────────────────────────────────────────────────────────────
+
 
 def api_get(token, url):
     req = urllib.request.Request(url, headers={"Authorization": token})
@@ -73,10 +89,16 @@ def api_get(token, url):
         body = e.read().decode()
         print(f"HTTP {e.code}: {body}", file=sys.stderr)
         if e.code == 401:
-            print("Hint: personal tokens use no 'Bearer' prefix — just pk_xxxxx.", file=sys.stderr)
+            print(
+                "Hint: personal tokens use no 'Bearer' prefix — just pk_xxxxx.",
+                file=sys.stderr,
+            )
         if "OAUTH_027" in body or "Team not authorized" in body:
-            print("Hint: custom IDs need uppercase-hyphen form (GYMED-793, not gymed793) "
-                  "and a valid CLICKUP_TEAM_ID.", file=sys.stderr)
+            print(
+                "Hint: custom IDs need uppercase-hyphen form (GYMED-793, not gymed793) "
+                "and a valid CLICKUP_TEAM_ID.",
+                file=sys.stderr,
+            )
         sys.exit(1)
     except Exception as e:
         print(f"Error fetching {url}: {e}", file=sys.stderr)
@@ -86,8 +108,10 @@ def api_get(token, url):
 def task_url(team_id, task_id):
     # custom_task_ids=true is harmless for UUID lookups too
     return (
-        "https://api.clickup.com/api/v2/task/" + task_id
-        + "?custom_task_ids=true&team_id=" + team_id
+        "https://api.clickup.com/api/v2/task/"
+        + task_id
+        + "?custom_task_ids=true&team_id="
+        + team_id
     )
 
 
@@ -109,6 +133,7 @@ def resolve_parent(token, team_id, parent_uuid):
 
 
 # ── Formatting helpers ──────────────────────────────────────────────────────
+
 
 def fmt_ts(ms):
     if not ms:
@@ -146,10 +171,14 @@ def is_custom_id(s):
 
 # ── Output ──────────────────────────────────────────────────────────────────
 
+
 def print_meta(d):
-    assignees = ", ".join(a.get("username", "?") for a in d.get("assignees", [])) or "unassigned"
+    assignees = (
+        ", ".join(a.get("username", "?") for a in d.get("assignees", []))
+        or "unassigned"
+    )
     status = d.get("status", {}).get("status", "?")
-    print(f'{d.get("custom_id", "")} | {d.get("name", "?")}')
+    print(f"{d.get('custom_id', '')} | {d.get('name', '?')}")
     print(f"Status: {status} | Assignees: {assignees}")
 
 
@@ -158,7 +187,10 @@ def print_full(d, token, team_id):
     status = d.get("status", {}).get("status", "?")
     priority = d.get("priority") or {}
     prio_str = priority.get("priority", "none")
-    assignees = ", ".join(a.get("username", "?") for a in d.get("assignees", [])) or "unassigned"
+    assignees = (
+        ", ".join(a.get("username", "?") for a in d.get("assignees", []))
+        or "unassigned"
+    )
     parent = d.get("parent")
 
     bar = "=" * 60
@@ -166,7 +198,7 @@ def print_full(d, token, team_id):
     print(name)
     print(bar)
     print(f"Status: {status}  |  Priority: {prio_str}  |  Assignee(s): {assignees}")
-    print(f'Custom ID: {d.get("custom_id", "?")}  |  UUID: {d.get("id", "?")}')
+    print(f"Custom ID: {d.get('custom_id', '?')}  |  UUID: {d.get('id', '?')}")
 
     if parent and parent != "none":
         resolved = resolve_parent(token, team_id, parent)
@@ -176,21 +208,21 @@ def print_full(d, token, team_id):
         else:
             print(f"Parent UUID: {parent}")
 
-    print(f'Created: {fmt_ts(d.get("date_created"))}')
-    print(f'Updated: {fmt_ts(d.get("date_updated"))}')
+    print(f"Created: {fmt_ts(d.get('date_created'))}")
+    print(f"Updated: {fmt_ts(d.get('date_updated'))}")
     if d.get("due_date"):
-        print(f'Due: {fmt_ts(d.get("due_date"))}')
+        print(f"Due: {fmt_ts(d.get('due_date'))}")
 
     tags = [t["name"] for t in d.get("tags", [])]
     if tags:
         print(f"Tags: {', '.join(tags)}")
 
     if d.get("list"):
-        print(f'List: {d["list"].get("name", "?")}')
+        print(f"List: {d['list'].get('name', '?')}")
     if d.get("folder"):
-        print(f'Folder: {d["folder"].get("name", "?")}')
+        print(f"Folder: {d['folder'].get('name', '?')}")
     if d.get("space"):
-        print(f'Space: {d["space"].get("name", "?")}')
+        print(f"Space: {d['space'].get('name', '?')}")
 
     print()
 
@@ -199,28 +231,34 @@ def print_full(d, token, team_id):
         print("--- Dependencies ---")
         for dep in deps:
             conf = dep.get("config", {})
-            print(f'  - {dep.get("type", "?")} - config: {json.dumps(conf)}')
+            print(f"  - {dep.get('type', '?')} - config: {json.dumps(conf)}")
 
     linked = d.get("linked_tasks", [])
     if linked:
         print("--- Linked Tasks ---")
         for lt in linked:
-            print(f'  - {lt.get("custom_id", "")}: {lt.get("name", "")} ({lt.get("id", "")})')
+            print(
+                f"  - {lt.get('custom_id', '')}: {lt.get('name', '')} ({lt.get('id', '')})"
+            )
 
     cfs = d.get("custom_fields", [])
     if cfs:
         print("--- Custom Fields ---")
         for cf in cfs:
             val = fmt_cf_value(cf.get("value", cf.get("parsed_value")))
-            print(f'  - {cf.get("name", "?")}: {val}')
+            print(f"  - {cf.get('name', '?')}: {val}")
 
     subtasks = d.get("subtasks", [])
     if subtasks:
         print()
         print("--- Subtasks ---")
         for st in subtasks:
-            sstatus = st.get("status", {}).get("status", "?") if isinstance(st.get("status"), dict) else st.get("status", "?")
-            print(f'  - {st.get("custom_id", "")}: {st.get("name", "")} ({sstatus})')
+            sstatus = (
+                st.get("status", {}).get("status", "?")
+                if isinstance(st.get("status"), dict)
+                else st.get("status", "?")
+            )
+            print(f"  - {st.get('custom_id', '')}: {st.get('name', '')} ({sstatus})")
 
     print()
     tc = d.get("text_content", "")
@@ -229,26 +267,29 @@ def print_full(d, token, team_id):
         print(tc)
 
     print()
-    print(f'URL: {d.get("url", "")}')
+    print(f"URL: {d.get('url', '')}")
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
+
 
 def main():
     parser = argparse.ArgumentParser(
         description="Fetch and format a single ClickUp task by custom ID or UUID."
     )
     parser.add_argument("task_id", help="Custom ID (e.g. GYMED-793) or task UUID")
-    parser.add_argument("--meta", action="store_true", help="Print header/status/assignee only")
+    parser.add_argument(
+        "--meta", action="store_true", help="Print header/status/assignee only"
+    )
     parser.add_argument("--json", action="store_true", help="Print raw API JSON")
     args = parser.parse_args()
 
     token, team_id = get_credentials()
 
     if is_custom_id(args.task_id):
-        print(f'Fetching {args.task_id} (custom ID)...', file=sys.stderr)
+        print(f"Fetching {args.task_id} (custom ID)...", file=sys.stderr)
     else:
-        print(f'Fetching task {args.task_id} (UUID)...', file=sys.stderr)
+        print(f"Fetching task {args.task_id} (UUID)...", file=sys.stderr)
 
     d = fetch_task(token, team_id, args.task_id)
 

@@ -11,9 +11,10 @@ Usage:
     python3 show_comments.py GYMED-793 --only-resolved   # resolved threads only
 
 Environment:
-    Reads CLICKUP_API_TOKEN and CLICKUP_TEAM_ID from:
+    Reads CLICKUP_API_TOKEN (or CLICKUP_API_KEY) and CLICKUP_TEAM_ID from:
     1. Environment variables (preferred)
-    2. ~/.hermes/.env fallback
+    2. ~/.agents/.env (preferred file fallback)
+    3. ~/.hermes/.env (legacy fallback)
 
 Requires: Python 3.7+ (stdlib only — uses urllib, no pip deps)
 """
@@ -31,16 +32,23 @@ from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
+
 def get_credentials():
-    """Get ClickUp API token and team ID from env or ~/.hermes/.env."""
-    token = os.environ.get("CLICKUP_API_TOKEN", "")
+    """Get ClickUp API token and team ID from env, then ~/.agents/.env
+    (preferred) or legacy ~/.hermes/.env."""
+    token = os.environ.get("CLICKUP_API_TOKEN", "") or os.environ.get(
+        "CLICKUP_API_KEY", ""
+    )
     team_id = os.environ.get("CLICKUP_TEAM_ID", "")
 
     if token and team_id:
         return token, team_id
 
-    env_file = Path.home() / ".hermes" / ".env"
-    if env_file.exists():
+    # Fallback: search candidate .env files (new home, then legacy).
+    candidates = [Path.home() / ".agents" / ".env", Path.home() / ".hermes" / ".env"]
+    for env_file in candidates:
+        if not env_file.exists():
+            continue
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line.startswith("#") or "=" not in line:
@@ -48,22 +56,31 @@ def get_credentials():
             key, _, value = line.partition("=")
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            if key == "CLICKUP_API_TOKEN" and not token:
+            if key in ("CLICKUP_API_TOKEN", "CLICKUP_API_KEY") and not token:
                 token = value
             elif key == "CLICKUP_TEAM_ID" and not team_id:
                 team_id = value
+        if token and team_id:
+            break
 
     if not token:
-        print("ERROR: CLICKUP_API_TOKEN not found in env or ~/.hermes/.env", file=sys.stderr)
+        print(
+            "ERROR: CLICKUP_API_TOKEN/CLICKUP_API_KEY not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if not team_id:
-        print("ERROR: CLICKUP_TEAM_ID not found in env or ~/.hermes/.env", file=sys.stderr)
+        print(
+            "ERROR: CLICKUP_TEAM_ID not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     return token, team_id
 
 
 # ── API ─────────────────────────────────────────────────────────────────────
+
 
 def api_get(token, url):
     req = urllib.request.Request(url, headers={"Authorization": token})
@@ -74,7 +91,10 @@ def api_get(token, url):
         body = e.read().decode()
         print(f"HTTP {e.code}: {body}", file=sys.stderr)
         if e.code == 401:
-            print("Hint: personal tokens use no 'Bearer' prefix — just pk_xxxxx.", file=sys.stderr)
+            print(
+                "Hint: personal tokens use no 'Bearer' prefix — just pk_xxxxx.",
+                file=sys.stderr,
+            )
         sys.exit(1)
     except Exception as e:
         print(f"Error fetching {url}: {e}", file=sys.stderr)
@@ -83,8 +103,10 @@ def api_get(token, url):
 
 def task_url(team_id, task_id):
     return (
-        "https://api.clickup.com/api/v2/task/" + task_id
-        + "?custom_task_ids=true&team_id=" + team_id
+        "https://api.clickup.com/api/v2/task/"
+        + task_id
+        + "?custom_task_ids=true&team_id="
+        + team_id
     )
 
 
@@ -106,13 +128,17 @@ def resolve_uuid(token, team_id, task_id):
 def fetch_comments(token, team_id, task_id):
     uuid = resolve_uuid(token, team_id, task_id)
     url = (
-        "https://api.clickup.com/api/v2/task/" + uuid + "/comment"
-        + "?custom_task_ids=true&team_id=" + team_id
+        "https://api.clickup.com/api/v2/task/"
+        + uuid
+        + "/comment"
+        + "?custom_task_ids=true&team_id="
+        + team_id
     )
     return api_get(token, url).get("comments", [])
 
 
 # ── Output ──────────────────────────────────────────────────────────────────
+
 
 def fmt_ts(ms):
     if not ms:
@@ -139,14 +165,16 @@ def format_comment(c):
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Fetch and format comments for a ClickUp task."
     )
     parser.add_argument("task_id", help="Custom ID (e.g. GYMED-793) or task UUID")
     parser.add_argument("--json", action="store_true", help="Print raw API JSON")
-    parser.add_argument("--only-resolved", action="store_true",
-                        help="Show only resolved comments")
+    parser.add_argument(
+        "--only-resolved", action="store_true", help="Show only resolved comments"
+    )
     args = parser.parse_args()
 
     token, team_id = get_credentials()

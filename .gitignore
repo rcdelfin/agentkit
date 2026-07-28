@@ -9,3 +9,6 @@ skills/projects/
 
 .ruff_cache
 skills/clickup/scripts/__pycache__/
+
+# Local secrets — real values never committed; .env.sample is the template.
+.env

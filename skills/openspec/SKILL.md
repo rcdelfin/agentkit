@@ -2,8 +2,9 @@
 name: openspec
 description: "OpenSpec artifact-driven workflow. Covers OPSX commands, schemas, project config. Use when applying the artifact-driven workflow (OPSX), planning or reviewing changes based on artifact dependencies, or working with OPSX commands and schema/template resolution. Keywords: OPSX, artifact graph, /opsx:."
 metadata:
-  version: "1.3.0"
-  release_date: "2026-04-11"
+  version: "1.6.0"
+  release_date: "2026-07-28"
+  tracks_cli: "openspec@1.6.0"
 ---
 
 # OpenSpec (OPSX) Skill
@@ -19,7 +20,13 @@ Use this skill to guide or reason about the OpenSpec artifact-driven workflow sy
 - End-to-end schema workflow gaps and proposed solution: references/schema-workflow-gaps.md
 - Experimental release plan and rollout checklist: references/experimental-release-plan.md
 
-## Release Highlights (1.2.0 → 1.3.0)
+## Release Highlights
+
+### 1.6.0
+
+- **New command `/opsx:onboard`:** guided walkthrough of a complete change cycle (explore → new → proposal → specs → design → tasks → apply → archive) using a real codebase task. Teaching overlay, not a new workflow phase.
+
+### 1.2.0 → 1.3.0
 
 - **More tool integrations:** adds support for Junie, Lingma, ForgeCode, and IBM Bob.
 - **Safer setup:** shell completion installation is now opt-in, and Copilot auto-detection no longer triggers from a bare `.github/` directory alone.
@@ -30,6 +37,7 @@ Use this skill to guide or reason about the OpenSpec artifact-driven workflow sy
 
 | Command              | Purpose                                                  |
 | -------------------- | -------------------------------------------------------- |
+| `/opsx:onboard`      | Guided first-cycle walkthrough (teaching overlay)        |
 | `/opsx:explore`      | Think through ideas, investigate problems (no structure) |
 | `/opsx:new`          | Start a new change                                       |
 | `/opsx:continue`     | Create next artifact based on dependencies               |

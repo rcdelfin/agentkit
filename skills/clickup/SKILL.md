@@ -26,6 +26,7 @@ The official ClickUp MCP server is at `https://mcp.clickup.com/mcp` but uses **O
 - ⚠️ **Does NOT work with Hermes HTTP MCP transport** — Hermes supports only static headers, not OAuth authorization flows
 
 For environments that support OAuth MCP (like Claude Desktop), add as:
+
 ```yaml
 mcp_servers:
   clickup:
@@ -41,14 +42,18 @@ Use the ClickUp REST API directly via `curl` or Python `urllib` — no MCP serve
 ```bash
 # Personal API token in Authorization header
 curl -s "https://api.clickup.com/api/v2/task/GYMED-425?custom_task_ids=true&team_id=$CLICKUP_TEAM_ID" \
-  -H "Authorization: $CLICKUP_API_TOKEN" | python3 -m json.tool
+  -H "Authorization: $CLICKUP_API_KEY" | python3 -m json.tool
 ```
 
 Set env vars:
+
 ```
-CLICKUP_API_TOKEN=pk_xxxxxxxxxxxxxxxxxxxx
+CLICKUP_API_KEY=pk_xxxxxxxxxxxxxxxxxxxx      # canonical — MCP + REST scripts both accept this
 CLICKUP_TEAM_ID=<your_workspace_id>
 ```
+
+`CLICKUP_API_KEY` is canonical (the MCP server mandates that name); the REST
+scripts also accept legacy `CLICKUP_API_TOKEN`. Keep **one** var.
 
 ### 3. Premium Third-Party MCP Server (requires license key)
 
@@ -62,7 +67,7 @@ mcp_servers:
       - -y
       - '@taazkareem/clickup-mcp-server@latest'
     env:
-      CLICKUP_API_KEY: ${CLICKUP_API_TOKEN}
+      CLICKUP_API_KEY: ${CLICKUP_API_KEY}
       CLICKUP_TEAM_ID: ${CLICKUP_TEAM_ID}
       CLICKUP_MCP_LICENSE_KEY: ${CLICKUP_MCP_LICENSE_KEY}    # REQUIRED
 ```
@@ -75,7 +80,7 @@ ClickUp custom task IDs like `GYMED-425`, `SCHOOL-123`, `NV-456` require special
 
 ```bash
 curl -s "https://api.clickup.com/api/v2/task/GYMED-425?custom_task_ids=true&team_id=$CLICKUP_TEAM_ID" \
-  -H "Authorization: $CLICKUP_API_TOKEN"
+  -H "Authorization: $CLICKUP_API_KEY"
 ```
 
 The `custom_task_ids=true` flag and `team_id` are **both required** for custom IDs. Without them you get `"Team not authorized"` errors.
@@ -103,7 +108,7 @@ Fetch the full content of a single task by its custom ID (e.g. `NV-428`, `GYMED-
 
 `scripts/show_task.py` and `scripts/show_comments.py` replace the inline
 `curl | python3 -c "..."` one-liners. They auto-load credentials from the
-environment, falling back to `~/.hermes/.env`, so no `export` step is needed.
+environment, falling back to `~/.agents/.env` (then legacy `~/.hermes/.env`), so no `export` step is needed.
 Resolve `scripts/...` against this skill's directory.
 
 ```bash
@@ -130,11 +135,12 @@ The raw `curl` snippets below remain useful as primitives and an offline fallbac
 ### Verify setup
 
 ```bash
-if [ -z "$CLICKUP_API_TOKEN" ]; then
-  echo "❌ CLICKUP_API_TOKEN is not set"
-  exit 1
-fi
-echo "✅ CLICKUP_API_TOKEN found"
+# Inherited env first (KEY canonical, TOKEN legacy); then the file fallbacks.
+{ [ -n "$CLICKUP_API_KEY" ] || [ -n "$CLICKUP_API_TOKEN" ]; } && echo "✅ env" || {
+  grep -qE 'CLICKUP_API_(KEY|TOKEN)' ~/.agents/.env 2>/dev/null && echo "✅ ~/.agents/.env" ||
+  grep -qE 'CLICKUP_API_(KEY|TOKEN)' ~/.hermes/.env 2>/dev/null && echo "✅ ~/.hermes/.env (legacy)" ||
+  { echo "❌ CLICKUP_API_KEY/TOKEN not found in env, ~/.agents/.env, or ~/.hermes/.env"; exit 1; }
+}
 echo "   CLICKUP_TEAM_ID=${CLICKUP_TEAM_ID:-5747865}"
 ```
 
@@ -147,7 +153,7 @@ TASK_ID="NV-428"
 TEAM_ID="${CLICKUP_TEAM_ID:-5747865}"
 
 curl -s \
-  -H "Authorization: $CLICKUP_API_TOKEN" \
+  -H "Authorization: $CLICKUP_API_KEY" \
   "https://api.clickup.com/api/v2/task/${TASK_ID}?custom_task_ids=true&team_id=${TEAM_ID}"
 ```
 
@@ -245,9 +251,9 @@ url = ("https://api.clickup.com/api/v2/team/" + TEAM_ID + "/task"
 
 ## Cron Job / Unattended Execution
 
-When running ClickUp tasks from a Hermes cron job, environment variables (`CLICKUP_API_TOKEN`, `CLICKUP_TEAM_ID`) may **not** be available in the cron execution context. Fallback:
+When running ClickUp tasks from a Hermes cron job, environment variables (`CLICKUP_API_KEY` (or legacy `CLICKUP_API_TOKEN`), `CLICKUP_TEAM_ID`) may **not** be available in the cron execution context. Fallback:
 
-1. Read from `~/.hermes/.env` (grep for `CLICKUP_API_TOKEN=` and `CLICKUP_TEAM_ID=`)
+1. Read from `~/.agents/.env` (then legacy `~/.hermes/.env`) — grep for `CLICKUP_API_KEY=` (or `CLICKUP_API_TOKEN=`) and `CLICKUP_TEAM_ID=`. Template: `cp ~/.agents/.env.sample ~/.agents/.env`.
 2. Search session history in `~/.hermes/sessions/` for the token (starts with `pk_`)
 3. The MCP server (if configured) has its own auth — but premium third-party servers may require a license key
 

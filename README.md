@@ -255,6 +255,36 @@ EOF
 
 ---
 
+## Credentials & Secrets
+
+A few skills need API keys. They resolve in this order:
+
+1. **Environment variables** (preferred). Export real values in `~/.zshrc`
+   (typically via a sourced `~/.zsh_secrets`); they are inherited by the
+   non-interactive shells the agent spawns, so no per-command `export` is needed.
+2. **`~/.agents/.env`** — the non-interactive fallback for cron jobs, daemons, or
+   shells not launched from a login zsh. Copy the template and fill it in:
+
+   ```sh
+   cp ~/.agents/.env.sample ~/.agents/.env
+   ```
+
+   `~/.agents/.env` is gitignored; `~/.agents/.env.sample` is the committed
+   template. Scripts still read the legacy `~/.hermes/.env` too.
+3. **Per-tool config** — some credentials never live in env (table below).
+
+| Skill | Credential | Where it lives |
+|-------|-----------|----------------|
+| **clickup** (REST scripts) | `CLICKUP_API_TOKEN` *or* `CLICKUP_API_KEY`, + `CLICKUP_TEAM_ID` | env → `~/.agents/.env` → `~/.hermes/.env` (legacy) |
+| **clickup** (MCP server) | `CLICKUP_API_KEY` (canonical — the MCP package mandates this name) | `~/.pi/agent/mcp.json` → `mcpServers.clickup.env` |
+| **figma** (`figma_*` tools) | Figma personal token | `~/.pi/figma/config.json` — **not** env; verify with the `figma_auth_status` tool |
+| **mr-review** / **gitlab-actions** | GitLab token | `glab auth login` writes glab's own config — **not** env. Never export `GITLAB_ACCESS_TOKEN`; a stale value there overrides glab and breaks auth |
+
+See [`~/.agents/.env.sample`](.env.sample) for the full key list and the copy
+command.
+
+---
+
 ## Directory Structure
 
 ```
