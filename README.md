@@ -63,12 +63,6 @@ rulebook — the process, conventions, and guardrails.
 | **Continuous Improvement** | Recurring mistakes, constraints, conventions get recorded in the appropriate doc level — not repeated every session. |
 | **Engineering Expectations** | Deterministic behavior, explicit ownership, small diffs, reversible changes. Long-term maintainability over clever implementations. |
 
-### RTK.md — Optional
-
-RTK (Rust Token Killer) CLI reference for token-optimized shell commands.
-Included for users who run RTK; harmless one-line reference for everyone else.
-Remove the `@RTK.md` line from `AGENTS.md` and delete `RTK.md` if unused.
-
 ### Customizing
 
 ```sh
@@ -102,11 +96,10 @@ and symlinks them to `instructions/`. **Idempotent** — safe to re-run.
 ```
 ~/.agents/instructions/          ← canonical source of truth
 ├── SYSTEM.md
-├── AGENTS.md
-└── RTK.md
+└── AGENTS.md
         ↑
-        ├── ~/.pi/agent/{SYSTEM,AGENTS,RTK}.md     (symlinks)
-        ├── ~/.claude/{SYSTEM,AGENTS,RTK}.md       (symlinks)
+        ├── ~/.pi/agent/{SYSTEM,AGENTS}.md     (symlinks)
+        ├── ~/.claude/{SYSTEM,AGENTS}.md       (symlinks)
         │   └── CLAUDE.md                           = @SYSTEM.md + @AGENTS.md
         ├── ~/.codex/AGENTS.md                      (symlink)
         └── ~/.gemini/GEMINI.md                     (symlink)
@@ -121,7 +114,7 @@ no re-install.
 
 | Harness | Config File | Method |
 |---------|-------------|--------|
-| **Pi** | `~/.pi/agent/` | Direct symlinks (`SYSTEM.md` + `AGENTS.md` + `RTK.md`) |
+| **Pi** | `~/.pi/agent/` | Direct symlinks (`SYSTEM.md` + `AGENTS.md`) |
 | **Claude Code** | `~/.claude/CLAUDE.md` | Thin `@import` wrapper + symlinks |
 | **Codex** | `~/.codex/AGENTS.md` | Direct symlink |
 | **Gemini CLI** | `~/.gemini/GEMINI.md` | Direct symlink |
@@ -294,8 +287,7 @@ command.
 ├── .gitignore                 ← excludes private skills
 ├── instructions/              ← canonical instruction files (edit these)
 │   ├── SYSTEM.md              ← agent identity & engineering principles
-│   ├── AGENTS.md              ← global development workflow
-│   └── RTK.md                 ← RTK token-killer reference (optional)
+│   └── AGENTS.md              ← global development workflow
 └── skills/                    ← skill library (auto-discovered)
     ├── skill-orchestration/   ← skill and MCP routing
     ├── tweak/                 ← change planning (featured)

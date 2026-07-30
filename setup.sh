@@ -104,7 +104,6 @@ if [ "$MODE" = "--unlink" ]; then
 		echo "Pi"
 		unlink_one "${HOME}/.pi/agent/SYSTEM.md"
 		unlink_one "${HOME}/.pi/agent/AGENTS.md"
-		unlink_one "${HOME}/.pi/agent/RTK.md"
 		echo ""
 	fi
 
@@ -114,7 +113,6 @@ if [ "$MODE" = "--unlink" ]; then
 		unlink_one "${HOME}/.claude/CLAUDE.md"
 		unlink_one "${HOME}/.claude/SYSTEM.md"
 		unlink_one "${HOME}/.claude/AGENTS.md"
-		unlink_one "${HOME}/.claude/RTK.md"
 		echo ""
 	fi
 
@@ -147,7 +145,6 @@ if [ -d "${HOME}/.pi/agent" ]; then
 	echo "Pi"
 	link "${INSTRUCTIONS}/SYSTEM.md" "${HOME}/.pi/agent/SYSTEM.md"
 	link "${INSTRUCTIONS}/AGENTS.md" "${HOME}/.pi/agent/AGENTS.md"
-	[ -f "${INSTRUCTIONS}/RTK.md" ] && link "${INSTRUCTIONS}/RTK.md" "${HOME}/.pi/agent/RTK.md"
 	echo ""
 fi
 
@@ -158,7 +155,6 @@ if [ -d "${HOME}/.claude" ]; then
 	echo "Claude Code"
 	link "${INSTRUCTIONS}/SYSTEM.md" "${HOME}/.claude/SYSTEM.md"
 	link "${INSTRUCTIONS}/AGENTS.md" "${HOME}/.claude/AGENTS.md"
-	[ -f "${INSTRUCTIONS}/RTK.md" ] && link "${INSTRUCTIONS}/RTK.md" "${HOME}/.claude/RTK.md"
 	write_file "${HOME}/.claude/CLAUDE.md" '@SYSTEM.md
 
 @AGENTS.md'
