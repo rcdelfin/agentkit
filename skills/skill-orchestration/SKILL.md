@@ -23,12 +23,24 @@ full skill bodies speculatively.
    skill changed during the session, or a referenced skill cannot be found:
 
    ```bash
-   python3 <skill-directory>/scripts/discover_skills.py
+   python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
+     --root ~/.agents/skills
    ```
 
-   Resolve `<skill-directory>` from this `SKILL.md` location. The scanner infers
-   the shared `skills/` root, follows symlinked project namespaces, and emits
-   `name`, `path`, and `description` as tab-separated values.
+   `scripts/` is beside this file, inside `skill-orchestration`; it is not
+   `~/.agents/skills/scripts/`. If this skill is installed elsewhere, replace
+   only the `~/.agents/skills/skill-orchestration` prefix with this file's
+   containing directory. The scanner infers the shared `skills/` root, follows
+   symlinked project namespaces, and emits skill `name`, absolute `path`, and
+   `description` records as tab-separated values. The emitted `path` is
+   authoritative; never reconstruct a path from the skill name or namespace.
+   When only a skill name is available, resolve its exact path with:
+
+   ```bash
+   python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
+     --root ~/.agents/skills --name <skill-name>
+   ```
+
 3. **Match semantically.** Compare the current request and relevant conversation
    state with each skill's `name` and `description`. Descriptions are trigger
    contracts, not marketing summaries.
@@ -40,8 +52,14 @@ full skill bodies speculatively.
    skill. Only after approval, load **`find-skills`** to search, recommend, and
    install; then rerun discovery from step 2. If the user declines, continue with
    available skills and global / repository instructions.
-6. **Load before acting.** Read every selected `SKILL.md`. When it references a
-   relative file, resolve it from that skill's directory.
+6. **Load before acting.** Read every selected `SKILL.md` from its exact
+   discovered path, preserving nested directories and symlinks. Never flatten
+   or reconstruct a selected skill as `<skills-root>/<name>/SKILL.md`. When it
+   references a relative file, resolve it from that skill's directory. If only
+   the name is known or the read reports `ENOENT`, run the resolver from step 2
+   and read its returned path verbatim. Do not substitute `projects/` for a
+   nested category, create an alias, or duplicate the skill. If the resolver's
+   exact path fails, report the filesystem error.
 7. **Compose instructions.** Follow global rules first, then workflow skills,
    then domain-specific skills. A more specific matching skill controls its
    domain unless it conflicts with higher-level instructions.
@@ -73,7 +91,8 @@ full skill bodies speculatively.
 Run this after adding, moving, renaming, or removing skills:
 
 ```bash
-python3 <skill-directory>/scripts/discover_skills.py --check
+python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
+  --root ~/.agents/skills --check
 ```
 
 Validation fails for broken symlinks, unreadable or invalid frontmatter, missing

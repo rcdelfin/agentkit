@@ -137,11 +137,7 @@ def discover(root: Path) -> tuple[list[Skill], list[str]]:
                         f"{skill_path}: frontmatter requires name and description"
                     )
                 else:
-                    try:
-                        display_path = skill_path.relative_to(root.parent)
-                    except ValueError:
-                        display_path = skill_path
-                    skills.append(Skill(name, description, str(display_path)))
+                    skills.append(Skill(name, description, str(skill_path.absolute())))
 
         stack.extend(reversed(child_directories))
 
@@ -174,6 +170,10 @@ def parse_args() -> argparse.Namespace:
         help="output format (default: tsv)",
     )
     parser.add_argument(
+        "--name",
+        help="print the exact path for one skill name",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="exit non-zero when metadata or links are invalid",
@@ -183,13 +183,22 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    root = args.root.expanduser().resolve()
+    # Keep symlink spelling in emitted paths so callers can read the discovered
+    # entry instead of reconstructing a different namespace from its name.
+    root = args.root.expanduser().absolute()
     if not root.is_dir():
         print(f"error: skills root does not exist: {root}", file=sys.stderr)
         return 2
 
     skills, issues = discover(root)
-    if args.format == "json":
+    if args.name is not None:
+        matches = [skill for skill in skills if skill.name == args.name.strip()]
+        if len(matches) != 1:
+            detail = "not found" if not matches else "duplicate name"
+            print(f"error: skill {args.name!r}: {detail}", file=sys.stderr)
+            return 1
+        print(matches[0].path)
+    elif args.format == "json":
         print(json.dumps([skill._asdict() for skill in skills], indent=2))
     else:
         for skill in skills:
