@@ -150,8 +150,7 @@ allowlist for markdown-only skills that do not require harness-specific tools.
 ```
 
 This creates individual links in detected Claude and Codex skill directories.
-It never links the whole `skills/` tree. Skills with Pi/Hermes/MCP-specific
-tools stay canonical until a native adapter exists. Gemini support is deferred
+It never links the whole `skills/` tree. Skills with harness- or MCP-specific tools stay canonical until a native adapter exists. Gemini support is deferred
 until its skill-loading contract is verified.
 
 To add a skill, test it in each target harness first, then add its directory name
@@ -251,6 +250,10 @@ creating an undocumented structure.
 
 ### Write Your Own
 
+Use [`agentkit-skill-authoring`](skills/software-development/agentkit-skill-authoring/)
+to design portable triggers, metadata, procedures, and verification before
+adding a skill to the catalog.
+
 ```sh
 mkdir -p ~/.agents/skills/my-skill
 cat > ~/.agents/skills/my-skill/SKILL.md << 'EOF'
@@ -270,25 +273,24 @@ EOF
 
 A few skills need API keys. They resolve in this order:
 
-1. **Environment variables** (preferred). Export real values in `~/.zshrc`
-   (typically via a sourced `~/.zsh_secrets`); they are inherited by the
-   non-interactive shells the agent spawns, so no per-command `export` is needed.
-2. **`~/.agents/.env`** — the non-interactive fallback for cron jobs, daemons, or
-   shells not launched from a login zsh. Copy the template and fill it in:
+1. **Environment variables** (preferred). The host harness may provide them to
+   agent subprocesses; do not print their values.
+2. **`~/.agents/.env`** — the shared file fallback for cron jobs, daemons, or
+   shells without inherited variables. Copy the template and fill it in:
 
    ```sh
    cp ~/.agents/.env.sample ~/.agents/.env
    ```
 
    `~/.agents/.env` is gitignored; `~/.agents/.env.sample` is the committed
-   template. Scripts still read the legacy `~/.hermes/.env` too.
+   template. No legacy credential file is read.
 3. **Per-tool config** — some credentials never live in env (table below).
 
 | Skill | Credential | Where it lives |
 |-------|-----------|----------------|
-| **clickup** (REST scripts) | `CLICKUP_API_TOKEN` *or* `CLICKUP_API_KEY`, + `CLICKUP_TEAM_ID` | env → `~/.agents/.env` → `~/.hermes/.env` (legacy) |
-| **clickup** (MCP server) | `CLICKUP_API_KEY` (canonical — the MCP package mandates this name) | `~/.pi/agent/mcp.json` → `mcpServers.clickup.env` |
-| **figma** (`figma_*` tools) | Figma personal token | `~/.pi/figma/config.json` — **not** env; verify with the `figma_auth_status` tool |
+| **clickup** (REST scripts) | `CLICKUP_API_TOKEN` *or* `CLICKUP_API_KEY`, + `CLICKUP_TEAM_ID` | env → `~/.agents/.env` |
+| **clickup** (MCP server) | `CLICKUP_API_KEY` (canonical — the MCP package mandates this name) | MCP host config → `mcpServers.clickup.env` |
+| **figma** (`figma_*` tools) | Figma personal token | Host-specific Figma config — **not** env; verify with the available Figma auth check |
 | **mr-review** / **gitlab-actions** | GitLab token | `glab auth login` writes glab's own config — **not** env. Never export `GITLAB_ACCESS_TOKEN`; a stale value there overrides glab and breaks auth |
 
 See [`~/.agents/.env.sample`](.env.sample) for the full key list and the copy
@@ -335,6 +337,18 @@ command.
 5. **Commit** your changes — the canonical files are the shared source of truth
 
 ---
+
+## Acknowledgments
+
+AgentKit incorporates or adapts ideas and references from:
+
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) — artifact-driven planning
+- [Anthropic skills](https://github.com/anthropics/skills) — self-contained skill patterns
+- [obra/superpowers](https://github.com/obra/superpowers) — TDD and debugging foundations
+- [agent0ai/dox](https://github.com/agent0ai/dox) — self-documenting instruction hierarchy
+- [skills.sh](https://skills.sh/) — community skill discovery
+
+Individual skills retain their own upstream attribution and licenses.
 
 ## License
 

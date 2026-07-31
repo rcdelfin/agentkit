@@ -54,6 +54,7 @@ def compute(x, y):
 Run the code normally. You land at the `breakpoint()` line with full access to locals.
 
 **Don't forget to remove `breakpoint()` before committing.**
+
 ```bash
 rg -n 'breakpoint\(\)' --type py
 ```
@@ -81,6 +82,7 @@ pytest tests/path/to/test_file.py --showlocals --tb=long
 ```
 
 **Note:** pytest-xdist (`-n 4`) and pdb do NOT work together. Add `-p no:xdist`:
+
 ```bash
 pytest tests/foo_test.py::test_bar --pdb -p no:xdist
 ```
@@ -96,12 +98,14 @@ except Exception:
 ```
 
 Or wrap a whole script:
+
 ```bash
 python -m pdb -c continue script.py
 # When it crashes, pdb catches it and you're in the frame of the exception
 ```
 
 Or set a global hook in a repl/jupyter:
+
 ```python
 import sys
 def excepthook(etype, value, tb):
@@ -111,7 +115,7 @@ sys.excepthook = excepthook
 
 ## Recipe 5: Remote debug with debugpy (attach to running process)
 
-For long-lived processes: Hermes gateway, tui_gateway, a daemon, a process that's already misbehaving and can't be restarted clean.
+For long-lived processes: a gateway, TUI, daemon, or process that's already misbehaving and can't be restarted clean.
 
 ### Setup
 
@@ -143,6 +147,7 @@ python -m debugpy --listen 127.0.0.1:5678 --pid <pid>
 ```
 
 Some kernels/security configs block ptrace-based injection:
+
 ```bash
 echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 ```
@@ -156,48 +161,20 @@ pip install remote-pdb
 ```
 
 In your code:
+
 ```python
 from remote_pdb import set_trace
 set_trace(host="127.0.0.1", port=4444)   # blocks until connection
 ```
 
 Then from the terminal:
+
 ```bash
 nc 127.0.0.1 4444
 # You get a (Pdb) prompt exactly as if debugging locally.
 ```
 
 `remote-pdb` is the cleanest agent-friendly choice. Use `debugpy` only when you need IDE integration.
-
-## Debugging Hermes-Specific Processes
-
-### Tests
-See Recipe 3. Always add `-p no:xdist` or run single tests without xdist.
-
-### `run_agent.py` / CLI — one-shot
-Add `breakpoint()` near the suspect line, then run `hermes` normally.
-
-### `tui_gateway` subprocess (spawned by `hermes --tui`)
-**A. Source-edit the gateway:**
-```python
-# tui_gateway/server.py near the top of serve()
-import debugpy
-debugpy.listen(("127.0.0.1", 5678))
-debugpy.wait_for_client()
-```
-
-**B. Use `remote-pdb` at a specific handler:**
-```python
-from remote_pdb import set_trace
-set_trace(host="127.0.0.1", port=4444)   # in the RPC handler you want to trap
-```
-Trigger the matching slash command from the TUI, then `nc 127.0.0.1 4444` in another terminal.
-
-### `_SlashWorker` subprocess
-Same pattern — `remote-pdb` with `set_trace()` inside the worker's `exec` path.
-
-### Gateway (`gateway/run.py`)
-Long-lived. Use `remote-pdb` at a handler, or `debugpy` with `--wait-for-client` if you're restarting the gateway anyway.
 
 ## Common Pitfalls
 
@@ -206,6 +183,7 @@ Long-lived. Use `remote-pdb` at a handler, or `debugpy` with `--wait-for-client`
 2. **`breakpoint()` in CI / non-TTY contexts hangs the process.** Safe locally; never commit it. Add a pre-commit grep as a safety net.
 
 3. **`PYTHONBREAKPOINT=0`** disables all `breakpoint()` calls. Check the env if your breakpoint isn't hitting:
+
    ```bash
    echo $PYTHONBREAKPOINT
    ```
@@ -229,6 +207,7 @@ Long-lived. Use `remote-pdb` at a handler, or `debugpy` with `--wait-for-client`
 - [ ] First breakpoint actually hits (if it doesn't, check `PYTHONBREAKPOINT`, xdist, or timing)
 - [ ] `where` / `w` shows the expected call stack
 - [ ] Post-debug cleanup: no stray `breakpoint()` / `set_trace()` in committed code
+
   ```bash
   rg -n 'breakpoint\(\)|set_trace\(|debugpy\.listen' --type py
   ```
@@ -236,6 +215,7 @@ Long-lived. Use `remote-pdb` at a handler, or `debugpy` with `--wait-for-client`
 ## One-Shot Recipes
 
 **"Why is this dict missing a key?"**
+
 ```python
 breakpoint()
 # then in pdb:
@@ -245,18 +225,22 @@ breakpoint()
 ```
 
 **"This test passes in isolation but fails in the suite."**
+
 ```bash
 pytest tests/ -x --pdb -p no:xdist
 # pdb-traps at the exact failing test after state accumulated.
 ```
 
 **"My async handler deadlocks."**
+
 ```python
 import remote_pdb; remote_pdb.set_trace(host="127.0.0.1", port=4444)
 ```
+
 Trigger the handler. `nc 127.0.0.1 4444`, then `w` to see the suspended frame, `!import asyncio; asyncio.all_tasks()` to see what else is pending.
 
 **"Post-mortem on a crash in a subprocess."**
+
 ```bash
 PYTHONFAULTHANDLER=1 python -m pdb -c continue path/to/entrypoint.py
 # On crash, pdb lands at the frame of the exception with full locals

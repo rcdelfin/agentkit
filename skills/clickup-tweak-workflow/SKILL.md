@@ -24,43 +24,32 @@ cause; a ticket names a symptom, not the bug); **Feature** →
 
 ## Prerequisites — ClickUp Credentials
 
-The canonical credential source is **`~/.zsh_secrets`**, sourced by `~/.zshrc`
-and exporting `CLICKUP_API_KEY` (canonical) plus `CLICKUP_TEAM_ID` — and,
-optionally, `CLICKUP_API_TOKEN` (legacy, same `pk_...` value). Hermes launches
-from an interactive zsh, so the exported vars are **inherited by the agent's
-non-interactive bash subprocess** and by MCP subprocesses — REST scripts find
-them via `os.environ` directly, no `export` step needed. **Do not read
-`~/.zsh_secrets`** — it is the user's secret store; trust the inherited env
-instead.
+Credentials live in **`~/.agents/.env`** or the process environment. The
+scripts read `CLICKUP_API_KEY` (canonical), optional `CLICKUP_API_TOKEN`, and
+`CLICKUP_TEAM_ID` from inherited env first, then `~/.agents/.env`. Do not print
+or expose secret values.
 
 | Var | Used by | Fallback if env missing |
 |---|---|---|
-| `CLICKUP_API_KEY` (canonical) | MCP server **and** REST scripts | MCP: `~/.pi/agent/mcp.json` → `mcpServers.clickup.env`; scripts: env → `~/.agents/.env` → `~/.hermes/.env` |
-| `CLICKUP_API_TOKEN` (optional) | REST scripts read this first, then fall back to `KEY` | `~/.agents/.env` → `~/.hermes/.env` (legacy) |
+| `CLICKUP_API_KEY` (canonical) | MCP server **and** REST scripts | `~/.agents/.env` |
+| `CLICKUP_API_TOKEN` (optional) | REST scripts; legacy alias for `KEY` | `~/.agents/.env` |
 | `CLICKUP_TEAM_ID` | both — custom-ID resolution | `5747865` |
 
-Keep **one** var: `CLICKUP_API_KEY` (the MCP server mandates that exact name).
-REST scripts read `CLICKUP_API_TOKEN` first, then fall back to `KEY`, so
-`TOKEN` is optional and exists only for back-compat with `~/.hermes/.env`.
-
-**Prefer the MCP server** when it is connected — `clickup_search_tasks`,
-`clickup_task_comments`, `clickup_manage_task` are richer than the REST scripts
-and are the canonical Hermes path. If the `clickup` server reports **not
-connected** (cached tools only), it connects at Hermes startup with no
-hot-reload — restart Hermes, or fall back to the REST scripts.
+**Prefer the MCP server** when connected — `clickup_search_tasks`,
+`clickup_task_comments`, and `clickup_manage_task` are richer than the REST
+scripts. If it is unavailable, use the REST scripts; they read the same
+credentials from `~/.agents/.env`.
 
 ### Verify before starting
 
 ```bash
-# Inherited env present? (do not cat ~/.zsh_secrets)
 [ -n "$CLICKUP_API_TOKEN" ] && echo "env TOKEN ok" || echo "env TOKEN MISSING"
 [ -n "$CLICKUP_API_KEY"   ] && echo "env KEY ok"   || echo "env KEY MISSING"
 # Live test (scripts read env first):
 python3 ~/.agents/skills/clickup/scripts/show_task.py GYMED-793 --meta
 ```
 
-If the env checks fail (e.g. a daemon not launched from a zsh login shell),
-fall back to the MCP server, or stop and ask the user — never guess card content.
+If credentials are unavailable, stop and ask the user — never guess card content.
 
 ## When to Use
 
@@ -77,7 +66,7 @@ stops after local verification.
    `AGENTS.md`). It fetches the card via **`clickup`** — prefer the MCP server's
    `clickup_search_tasks` / `clickup_task_comments` when connected; otherwise
    the REST scripts (`show_task.py <ID>`, `show_comments.py <ID>`) read creds
-   straight from the inherited env (see **Prerequisites**). Either way it
+   from inherited env or `~/.agents/.env` (see **Prerequisites**). Either way it
    writes the append-only raw corpus + rebuilds the topic page per the wiki's
    governance.
 
@@ -142,15 +131,9 @@ stops after local verification.
 
 ## Pitfalls
 
-- **Never read `~/.zsh_secrets`** — it is the user's secret store. Trust the
-  inherited env (`$CLICKUP_API_TOKEN` / `$CLICKUP_API_KEY`); only fall back to
-  `~/.pi/agent/mcp.json` (MCP) or `~/.agents/.env` → `~/.hermes/.env` (legacy
-  scripts) if the env is absent (e.g. a daemon not launched from a zsh login
-  shell). Template: `cp ~/.agents/.env.sample ~/.agents/.env`.
-- **Keep one token var**: `CLICKUP_API_KEY` is canonical (MCP mandates it); REST
-  scripts read `CLICKUP_API_TOKEN` first then fall back to `KEY`. A stale
-  `CLICKUP_API_KEY` in the shell env is silently ignored by MCP (which reads its
-  own `mcp.json` copy) — verify the live value; don't assume two vars stay in sync.
+- **Keep one token var**: `CLICKUP_API_KEY` is canonical; REST scripts accept
+  `CLICKUP_API_TOKEN` as a legacy alias. Keep credentials in `~/.agents/.env`
+  and never print their values.
 - Never assume branch base, branch type, or MR creation is authorized.
 - Do not skip root-cause investigation for hotfixes because urgency increases
   the cost of a wrong patch.

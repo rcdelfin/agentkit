@@ -142,54 +142,12 @@ Run it:
 node /tmp/cdp-debug.js
 ```
 
-**Hermes note:** Install `chrome-remote-interface` to a throwaway location if you don't want to dirty the project:
+Install `chrome-remote-interface` to a throwaway location if you don't want to dirty the project:
 
 ```bash
 mkdir -p /tmp/cdp-tools && cd /tmp/cdp-tools && npm i chrome-remote-interface
 NODE_PATH=/tmp/cdp-tools/node_modules node /tmp/cdp-debug.js
 ```
-
-## Debugging Hermes ui-tui (Ink + tsx)
-
-### Debugging a single Ink component under dev
-
-```bash
-cd ui-tui
-npm run build    # produce dist/ once so transpile isn't needed on first load
-node --inspect-brk dist/entry.js
-# In another terminal:
-node inspect -p <node pid>
-```
-
-Then inside `debug>`:
-
-```
-sb('dist/app.js', 220)     # or wherever the suspect render is
-cont
-```
-
-When it pauses, `repl` → inspect `props`, state refs, `useInput` handler values, etc.
-
-### Debugging a running `hermes --tui`
-
-The TUI spawns Node from the Python CLI. Easiest path:
-
-```bash
-# 1. Launch TUI
-hermes --tui &
-TUI_PID=$(pgrep -f 'ui-tui/dist/entry' | head -1)
-
-# 2. Enable inspector on that Node PID
-kill -SIGUSR1 "$TUI_PID"
-
-# 3. Find the WS URL
-curl -s http://127.0.0.1:9229/json/list | jq -r '.[0].webSocketDebuggerUrl'
-
-# 4. Attach
-node inspect ws://127.0.0.1:9229/<uuid>
-```
-
-Interacting with the TUI (typing in its window) continues to advance execution; your debugger can pause it on a breakpoint at any `sb(...)`.
 
 ## Running Vitest Tests Under the Debugger
 
@@ -233,6 +191,7 @@ require('fs').writeFileSync('/tmp/heap.heapsnapshot', chunks.join(''));
 2. **`--inspect` vs `--inspect-brk`.** `--inspect` starts the inspector but doesn't pause; your script races past your first breakpoint if you attach too late. Use `--inspect-brk` when you need to set breakpoints before any code runs.
 
 3. **Port collisions.** Default is `9229`. If multiple Node processes are inspecting, pass `--inspect=0` (random port) and read the actual URL from `/json/list`:
+
    ```bash
    curl -s http://127.0.0.1:9229/json/list   # lists all inspectable targets on the host
    ```
@@ -241,7 +200,7 @@ require('fs').writeFileSync('/tmp/heap.heapsnapshot', chunks.join(''));
 
 5. **Background kills.** If you `Ctrl+C` out of `node inspect` while the target is paused, the target stays paused. Either `cont` first, or `kill` the target explicitly.
 
-6. **Running `node inspect` through an agent terminal.** It's a PTY-friendly REPL. In Hermes, launch it with `terminal(pty=true)` or `background=true` + `process(action='submit', data='...')`. Non-PTY foreground mode will work for one-shot commands but not for interactive stepping.
+6. **Running `node inspect` through an agent terminal.** It's a PTY-friendly REPL. Use the host harness's PTY-capable terminal when available. Non-PTY foreground mode will work for one-shot commands but not for interactive stepping.
 
 7. **Security.** `--inspect=0.0.0.0:9229` exposes arbitrary code execution. Always bind to `127.0.0.1` (the default) unless you have an isolated network.
 
@@ -257,6 +216,7 @@ After setting up a debug session, verify:
 ## One-Shot Recipes
 
 **"Why is this variable undefined at line X?"**
+
 ```bash
 node --inspect-brk script.js &
 node inspect -p $!
@@ -270,6 +230,7 @@ repl
 ```
 
 **"What's the call path into this function?"**
+
 ```
 debug> sb('suspectFn')
 debug> cont
@@ -278,6 +239,7 @@ debug> bt
 ```
 
 **"This async chain hangs — where?"**
+
 ```
 # Start with --inspect (no -brk), let it run to the hang, then:
 debug> pause

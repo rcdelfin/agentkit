@@ -13,20 +13,19 @@ Usage:
 Environment:
     Reads CLICKUP_API_TOKEN (or CLICKUP_API_KEY) and CLICKUP_TEAM_ID from:
     1. Environment variables (preferred)
-    2. ~/.agents/.env (preferred file fallback)
-    3. ~/.hermes/.env (legacy fallback)
+    2. ~/.agents/.env (file fallback)
 
 Requires: Python 3.7+ (stdlib only — uses urllib, no pip deps)
 """
 
-import urllib.request
-import urllib.error
 import argparse
 import datetime
 import json
-import sys
 import os
 import re
+import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
@@ -34,8 +33,7 @@ from pathlib import Path
 
 
 def get_credentials():
-    """Get ClickUp API token and team ID from env, then ~/.agents/.env
-    (preferred) or legacy ~/.hermes/.env."""
+    """Get ClickUp API token and team ID from env or ~/.agents/.env."""
     token = os.environ.get("CLICKUP_API_TOKEN", "") or os.environ.get(
         "CLICKUP_API_KEY", ""
     )
@@ -44,8 +42,8 @@ def get_credentials():
     if token and team_id:
         return token, team_id
 
-    # Fallback: search candidate .env files (new home, then legacy).
-    candidates = [Path.home() / ".agents" / ".env", Path.home() / ".hermes" / ".env"]
+    # Fallback: read the shared AgentKit env file.
+    candidates = [Path.home() / ".agents" / ".env"]
     for env_file in candidates:
         if not env_file.exists():
             continue
@@ -65,13 +63,13 @@ def get_credentials():
 
     if not token:
         print(
-            "ERROR: CLICKUP_API_TOKEN/CLICKUP_API_KEY not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            "ERROR: CLICKUP_API_TOKEN/CLICKUP_API_KEY not found in env or ~/.agents/.env",
             file=sys.stderr,
         )
         sys.exit(1)
     if not team_id:
         print(
-            "ERROR: CLICKUP_TEAM_ID not found in env, ~/.agents/.env, or ~/.hermes/.env",
+            "ERROR: CLICKUP_TEAM_ID not found in env or ~/.agents/.env",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -143,7 +141,12 @@ def fetch_comments(token, team_id, task_id):
 def fmt_ts(ms):
     if not ms:
         return "?"
-    return datetime.datetime.fromtimestamp(int(ms) / 1000).strftime("%Y-%m-%d %H:%M")
+    try:
+        return datetime.datetime.fromtimestamp(int(ms) / 1000).strftime(
+            "%Y-%m-%d %H:%M"
+        )
+    except (TypeError, ValueError, OSError, OverflowError):
+        return "?"
 
 
 def format_comment(c):

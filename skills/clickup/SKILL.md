@@ -1,13 +1,12 @@
 ---
 name: clickup
-description: "Work with ClickUp from Hermes: MCP server setup, REST API patterns, task card pulls, and triage workflows."
+description: "Work with ClickUp: MCP server setup, REST API patterns, task card pulls, and triage workflows."
 version: 2.0.0
-author: Hermes Agent
+author: AgentKit contributors
 license: MIT
 metadata:
-  hermes:
-    tags: [ClickUp, Project Management, Task, MCP]
-    related_skills: [native-mcp]
+  tags: [ClickUp, Project Management, Task, MCP]
+  related_skills: [native-mcp]
 ---
 
 # ClickUp
@@ -16,14 +15,14 @@ Use this skill when working with ClickUp — fetching tasks, creating/updating i
 
 ## Three Ways to Interact with ClickUp
 
-### 1. Official ClickUp MCP Server (OAuth only — limited Hermes support)
+### 1. Official ClickUp MCP Server (OAuth only)
 
 The official ClickUp MCP server is at `https://mcp.clickup.com/mcp` but uses **OAuth** (browser-based authorization), **not** personal API tokens. This means:
 
 - ❌ **Personal API tokens (`pk_...`) are rejected** — server returns `"Failed to decode JWE header"`
 - ❌ **Bearer tokens from OAuth app** — also rejected unless you've gone through the full OAuth device-code flow
 - ✅ **Works in Claude Desktop, Cursor, VS Code** — these clients support the interactive OAuth redirect flow
-- ⚠️ **Does NOT work with Hermes HTTP MCP transport** — Hermes supports only static headers, not OAuth authorization flows
+- ⚠️ **Does NOT work with static-header-only MCP clients** — this server requires an OAuth authorization flow
 
 For environments that support OAuth MCP (like Claude Desktop), add as:
 
@@ -35,7 +34,7 @@ mcp_servers:
     # No headers needed — OAuth is handled by the client at connection time
 ```
 
-### 2. REST API (recommended for Hermes)
+### 2. REST API (recommended fallback)
 
 Use the ClickUp REST API directly via `curl` or Python `urllib` — no MCP server needed:
 
@@ -72,7 +71,7 @@ mcp_servers:
       CLICKUP_MCP_LICENSE_KEY: ${CLICKUP_MCP_LICENSE_KEY}    # REQUIRED
 ```
 
-**⚠️ Hermes filters env vars for MCP subprocesses** — only vars explicitly listed in the `env:` block are passed through. If a required env var (`CLICKUP_MCP_LICENSE_KEY`, etc.) is set in your shell but not listed here, the subprocess won't see it.
+**⚠️ MCP hosts may filter subprocess env vars** — only vars explicitly listed in the `env:` block are reliably passed through. If a required env var (`CLICKUP_MCP_LICENSE_KEY`, etc.) is set in your shell but not listed here, the subprocess may not see it.
 
 ## Custom Task IDs
 
@@ -108,7 +107,7 @@ Fetch the full content of a single task by its custom ID (e.g. `NV-428`, `GYMED-
 
 `scripts/show_task.py` and `scripts/show_comments.py` replace the inline
 `curl | python3 -c "..."` one-liners. They auto-load credentials from the
-environment, falling back to `~/.agents/.env` (then legacy `~/.hermes/.env`), so no `export` step is needed.
+environment, falling back to `~/.agents/.env`, so no `export` step is needed.
 Resolve `scripts/...` against this skill's directory.
 
 ```bash
@@ -135,11 +134,10 @@ The raw `curl` snippets below remain useful as primitives and an offline fallbac
 ### Verify setup
 
 ```bash
-# Inherited env first (KEY canonical, TOKEN legacy); then the file fallbacks.
+# Inherited env first; then the shared AgentKit env file.
 { [ -n "$CLICKUP_API_KEY" ] || [ -n "$CLICKUP_API_TOKEN" ]; } && echo "✅ env" || {
   grep -qE 'CLICKUP_API_(KEY|TOKEN)' ~/.agents/.env 2>/dev/null && echo "✅ ~/.agents/.env" ||
-  grep -qE 'CLICKUP_API_(KEY|TOKEN)' ~/.hermes/.env 2>/dev/null && echo "✅ ~/.hermes/.env (legacy)" ||
-  { echo "❌ CLICKUP_API_KEY/TOKEN not found in env, ~/.agents/.env, or ~/.hermes/.env"; exit 1; }
+  { echo "❌ CLICKUP_API_KEY/TOKEN not found in env or ~/.agents/.env"; exit 1; }
 }
 echo "   CLICKUP_TEAM_ID=${CLICKUP_TEAM_ID:-5747865}"
 ```
@@ -251,13 +249,13 @@ url = ("https://api.clickup.com/api/v2/team/" + TEAM_ID + "/task"
 
 ## Cron Job / Unattended Execution
 
-When running ClickUp tasks from a Hermes cron job, environment variables (`CLICKUP_API_KEY` (or legacy `CLICKUP_API_TOKEN`), `CLICKUP_TEAM_ID`) may **not** be available in the cron execution context. Fallback:
+When running ClickUp tasks unattended, environment variables (`CLICKUP_API_KEY`
+(or legacy `CLICKUP_API_TOKEN`), `CLICKUP_TEAM_ID`) may **not** be available in
+the execution context. Read them from `~/.agents/.env` instead. Template:
+`cp ~/.agents/.env.sample ~/.agents/.env`.
 
-1. Read from `~/.agents/.env` (then legacy `~/.hermes/.env`) — grep for `CLICKUP_API_KEY=` (or `CLICKUP_API_TOKEN=`) and `CLICKUP_TEAM_ID=`. Template: `cp ~/.agents/.env.sample ~/.agents/.env`.
-2. Search session history in `~/.hermes/sessions/` for the token (starts with `pk_`)
-3. The MCP server (if configured) has its own auth — but premium third-party servers may require a license key
-
-**Prefer REST API via `curl` / Python `urllib` for cron jobs** — avoids MCP server dependency and license issues entirely.
+**Prefer REST API via `curl` / Python `urllib` for unattended jobs** — avoids
+MCP server dependency and license issues entirely.
 
 ## Pitfalls
 
@@ -266,7 +264,7 @@ When running ClickUp tasks from a Hermes cron job, environment variables (`CLICK
 - **Custom task IDs break without `custom_task_ids=true&team_id=X`**. Always include both query params for `GYMED-*`, `SCHOOL-*`, `NV-*` etc.
 - **Custom task ID format is uppercase with hyphen — `NV-428` works, `nv428` and `NV428` do not.** The API returns `"Team not authorized"` (not 404) when the format is wrong. Always use the canonical form: `PROJECT-###`. This applies to all custom IDs including `GYMED-425`, `NV-356`, `SCHOOL-123`, etc.
 - **The `Authorization` header format is just `pk_xxxxx`** — no `Bearer` prefix for personal tokens. OAuth tokens use `Bearer`.
-- **MCP config changes require a Hermes restart** — MCP servers connect at startup and don't hot-reload.
+- **MCP config changes require an agent restart** — MCP servers connect at startup and don't hot-reload.
 - **Premium MCP servers require a license key** — `@taazkareem/clickup-mcp-server` and similar return `CLICKUP_MCP_LICENSE_KEY` errors. Prefer the REST API fallback — no license, no OAuth, works everywhere.
 - **Rate limits**: ClickUp API has rate limits per plan. Check `API availability by Plan` in docs.
 - **The `linked_tasks` array may be empty depending on workspace configuration** (ClickUp's "Task Relationships" feature must be enabled).

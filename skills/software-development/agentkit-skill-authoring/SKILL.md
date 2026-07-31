@@ -1,9 +1,8 @@
 ---
-name: hermes-agent-skill-authoring
+name: agentkit-skill-authoring
 description: "Use when creating, editing, or reviewing SKILL.md files. Keep triggers precise, context progressive, and bodies lean."
 version: 1.0.0
-author: Private skills
-authoring_source: Hermes Agent 1.1.0
+author: AgentKit contributors
 license: MIT
 metadata:
   tags: [skills, authoring, conventions, token-budget]
@@ -12,14 +11,14 @@ metadata:
 # Skill Authoring
 
 Create skills that change agent behavior without repeating system guidance or
-loading a large playbook on every matching turn. This is a Pi/private-tree
-adaptation of Hermes Agent's `hermes-agent-skill-authoring` skill.
+loading a large playbook on every matching turn. Keep skills portable by
+separating shared behavior from harness-specific adapters.
 
 ## When to Use
 
 - Creating or editing non-project `SKILL.md` files under `~/.agents/skills/`.
 - Reviewing a skill for trigger quality, duplication, or token waste.
-- Porting a skill from another agent framework.
+- Porting a skill between agent harnesses.
 
 Do not use this for ordinary Markdown documentation, one-off task notes, or
 company-owned skills under `~/.agents/skills/projects/`.
@@ -31,8 +30,8 @@ company-owned skills under `~/.agents/skills/projects/`.
   category and existing conventions.
 - `~/.agents/skills/projects/` is company-owned. Never create, edit, delete, or
   reformat files there from this skill.
-- `skill_manage` creates persistent Pi-native skills in its own managed store;
-  it is not a substitute for editing this private source tree.
+- `skill_manage` creates skills in its managed store; it is not a substitute
+  for editing this repository source tree.
 - Before editing, read applicable `AGENTS.md` files and the target skill body.
 
 ## Procedure
@@ -95,7 +94,7 @@ Smallest checks that prove the skill is valid and its work is complete.
 
 ## Validation
 
-For a private-tree skill, run:
+For a repository skill, run:
 
 ```bash
 python3 - <<'PY'
@@ -121,8 +120,8 @@ Also inspect the diff and confirm no unrelated skill or generated file changed.
 
 ## Pitfalls
 
-1. `skill_manage(action='create')` writes its managed Pi skill store, not this
-   private source tree.
+1. A managed skill store is separate from this source tree; edit repository
+   files in place.
 2. A copied skill can contain valid Markdown but invalid local tool names,
    paths, hooks, or delegation APIs.
 3. A generic or late trigger makes the skill expensive and easy to misroute.
@@ -137,5 +136,5 @@ Also inspect the diff and confirm no unrelated skill or generated file changed.
 - [ ] Frontmatter starts at byte 0 and has required fields.
 - [ ] Body is concise, actionable, and locally compatible.
 - [ ] Branch-specific detail is progressively disclosed.
-- [ ] Private-tree validation and discovery checks pass.
+- [ ] Repository validation and discovery checks pass.
 - [ ] Diff contains only intended skill changes.

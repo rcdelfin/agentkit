@@ -2,12 +2,11 @@
 name: systematic-debugging
 description: "4-phase root cause debugging: understand bugs before fixing."
 version: 1.1.0
-author: Hermes Agent (adapted from obra/superpowers)
+author: AgentKit contributors (adapted from obra/superpowers)
 license: MIT
 metadata:
-  hermes:
-    tags: [debugging, troubleshooting, problem-solving, root-cause, investigation]
-    related_skills: [test-driven-development, systems-thinking, skill-orchestration]
+  tags: [debugging, troubleshooting, problem-solving, root-cause, investigation]
+  related_skills: [test-driven-development, systems-thinking, skill-orchestration]
 ---
 
 # Systematic Debugging
@@ -324,7 +323,7 @@ pdb REPL quick reference, debugpy remote attach (DAP), remote-pdb for terminal a
 
 ### Node.js Debugging → `references/nodejs-debugging.md`
 
-`node inspect` REPL reference, CDP scripting via `chrome-remote-interface`, attaching to running processes (SIGUSR1), Vitest debugging, heap snapshots & CPU profiling, and Hermes ui-tui debugging patterns.
+`node inspect` REPL reference, CDP scripting via `chrome-remote-interface`, attaching to running processes (SIGUSR1), Vitest debugging, heap snapshots, CPU profiles, and UI debugging patterns.
 
 ---
 
