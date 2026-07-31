@@ -11,7 +11,7 @@ senior engineer who respects your codebase:
 |--------|-----------|-------|
 | **Instructions** | Agent identity + development workflow | `instructions/` |
 | **Skills** | Procedural knowledge the agent loads on demand | `skills/` |
-| **Setup** | One command to link everything into every harness | `setup.sh` |
+| **Setup** | One command to link instructions and optional portable skills | `setup.sh` |
 
 ---
 
@@ -86,7 +86,9 @@ The script detects installed harnesses, backs up existing configs (`.bak`),
 and symlinks them to `instructions/`. **Idempotent** — safe to re-run.
 
 ```sh
-./setup.sh --unlink   # removes symlinks, restores .bak files
+./setup.sh --link-skills    # opt-in: link allowlisted portable skills
+./setup.sh --unlink         # remove instruction links, restore .bak files
+./setup.sh --unlink-skills  # remove portable skill links
 ```
 
 ---
@@ -114,10 +116,10 @@ no re-install.
 
 | Harness | Config File | Method |
 |---------|-------------|--------|
-| **Pi** | `~/.pi/agent/` | Direct symlinks (`SYSTEM.md` + `AGENTS.md`) |
-| **Claude Code** | `~/.claude/CLAUDE.md` | Thin `@import` wrapper + symlinks |
-| **Codex** | `~/.codex/AGENTS.md` | Direct symlink |
-| **Gemini CLI** | `~/.gemini/GEMINI.md` | Direct symlink |
+| **Pi** | `~/.pi/agent/` | Instruction symlinks + canonical `~/.agents/skills/` |
+| **Claude Code** | `~/.claude/CLAUDE.md` | Thin `@import` wrapper + optional skill links |
+| **Codex** | `~/.codex/AGENTS.md` | Direct symlink + optional skill links |
+| **Gemini CLI** | `~/.gemini/GEMINI.md` | Direct instruction symlink |
 
 ### Adding a Harness
 
@@ -134,10 +136,26 @@ fi
 
 ## Skills
 
-Auto-discovered from `SKILL.md` files under `~/.agents/skills/`, including
-nested and symlinked project namespaces. Each compatible harness loads the
-catalog; [`skill-orchestration`](skills/skill-orchestration/) can refresh it from
-disk and select the smallest matching skill set.
+Pi auto-discovers `SKILL.md` files under `~/.agents/skills/`, including nested
+and symlinked project namespaces. Other harnesses may use different skill roots
+or loaders, so sharing is opt-in and per-skill.
+
+### Cross-harness skill links
+
+`skills/` is the canonical source. `skills/portable.txt` is the explicit
+allowlist for markdown-only skills that do not require harness-specific tools.
+
+```sh
+./setup.sh --link-skills
+```
+
+This creates individual links in detected Claude and Codex skill directories.
+It never links the whole `skills/` tree. Skills with Pi/Hermes/MCP-specific
+tools stay canonical until a native adapter exists. Gemini support is deferred
+until its skill-loading contract is verified.
+
+To add a skill, test it in each target harness first, then add its directory name
+to `skills/portable.txt`.
 
 ### Featured: Tweak — Change Planning
 

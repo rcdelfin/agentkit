@@ -7,14 +7,17 @@
 # up with a .bak suffix. Safe to re-run.
 #
 # Usage:
-#   ./setup.sh              # link all detected harnesses
-#   ./setup.sh --unlink     # remove symlinks, restore .bak if available
+#   ./setup.sh              # link instruction files for detected harnesses
+#   ./setup.sh --unlink     # remove instruction links, restore .bak if available
+#   ./setup.sh --link-skills    # link allowlisted portable skills
+#   ./setup.sh --unlink-skills  # remove portable skill links
 #
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTRUCTIONS="${SCRIPT_DIR}/instructions"
+PORTABLE_SKILLS="${SCRIPT_DIR}/skills/portable.txt"
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -83,6 +86,72 @@ unlink_one() {
 	fi
 }
 
+link_skill() {
+	local canonical="$1" target="$2"
+
+	mkdir -p "$(dirname "$target")"
+
+	if [ -L "$target" ]; then
+		local current
+		current="$(readlink "$target")"
+		if [ "$current" = "$canonical" ]; then
+			dim "$(basename "$target") already linked"
+		else
+			yellow "Skipped existing skill $(basename "$target")"
+		fi
+		return 0
+	elif [ -e "$target" ]; then
+		yellow "Skipped existing skill $(basename "$target")"
+		return 0
+	fi
+
+	ln -s "$canonical" "$target"
+	green "$(basename "$target") → $(basename "$canonical")"
+}
+
+link_portable_skills() {
+	if [ ! -f "$PORTABLE_SKILLS" ]; then
+		echo "Error: ${PORTABLE_SKILLS} not found." >&2
+		exit 1
+	fi
+
+	for harness in claude codex; do
+		local root="${HOME}/.${harness}"
+		[ -d "$root" ] || continue
+
+		echo "$harness skills"
+		while IFS= read -r skill || [ -n "$skill" ]; do
+			case "$skill" in '' | \#*) continue ;; esac
+			local source="${SCRIPT_DIR}/skills/${skill}"
+			[ -d "$source" ] || {
+				yellow "Missing skill ${skill}"
+				continue
+			}
+			link_skill "$source" "${root}/skills/${skill}"
+		done <"$PORTABLE_SKILLS"
+		echo ""
+	done
+}
+
+unlink_portable_skills() {
+	[ -f "$PORTABLE_SKILLS" ] || exit 0
+
+	for harness in claude codex; do
+		local root="${HOME}/.${harness}"
+		[ -d "$root" ] || continue
+
+		while IFS= read -r skill || [ -n "$skill" ]; do
+			case "$skill" in '' | \#*) continue ;; esac
+			local source="${SCRIPT_DIR}/skills/${skill}"
+			local target="${root}/skills/${skill}"
+			if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
+				rm "$target"
+				green "Removed $(basename "$target")"
+			fi
+		done <"$PORTABLE_SKILLS"
+	done
+}
+
 # ── Pre-flight ───────────────────────────────────────────────────────
 
 if [ ! -f "${INSTRUCTIONS}/AGENTS.md" ]; then
@@ -93,6 +162,16 @@ fi
 # ── Mode ─────────────────────────────────────────────────────────────
 
 MODE="${1:-link}"
+
+if [ "$MODE" = "--link-skills" ]; then
+	link_portable_skills
+	exit 0
+fi
+
+if [ "$MODE" = "--unlink-skills" ]; then
+	unlink_portable_skills
+	exit 0
+fi
 
 if [ "$MODE" = "--unlink" ]; then
 	echo ""

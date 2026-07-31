@@ -1,0 +1,11 @@
+# Markdown-only skills with no harness-specific tool requirements.
+# Add a skill only after testing it in each target harness.
+analogical-thinking
+caveman
+dox
+improve
+investigate
+ponytail
+scrutinize
+systems-thinking
+tweak
