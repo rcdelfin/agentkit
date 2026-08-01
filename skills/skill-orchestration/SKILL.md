@@ -11,63 +11,48 @@ of truth; do not maintain a duplicate routing matrix here.
 ## Activation model
 
 A skill is activated by reading its `SKILL.md` and following its instructions.
-Discovery only reads frontmatter metadata. It must never execute scripts or load
-full skill bodies speculatively.
+Discovery only reads frontmatter metadata. The bundled discovery helper is the
+sole script exception; never execute candidate-skill scripts or load full skill
+bodies speculatively.
 
 ## Procedure
 
-1. **Ground in global rules.** Apply `SYSTEM.md` and the applicable `AGENTS.md`
-   hierarchy first. Skills add domain guidance; they do not override it.
-2. **Discover available skills.** Prefer the harness-provided skill catalog when
-   it is present and current. Refresh from disk when the catalog is absent, a
-   skill changed during the session, or a referenced skill cannot be found:
+1. **Ground.** Apply `SYSTEM.md` and the applicable `AGENTS.md` hierarchy before
+   skill guidance. Skills add domain detail; they do not override global rules.
+2. **Discover.** Use the harness catalog only for candidate names and
+   descriptions. It is not authoritative for paths. When absent or stale, run
+   the bundled helper beside this file:
 
    ```bash
-   python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
-     --root ~/.agents/skills
+   python3 <skill-directory>/scripts/discover_skills.py
    ```
 
-   `scripts/` is beside this file, inside `skill-orchestration`; it is not
-   `~/.agents/skills/scripts/`. If this skill is installed elsewhere, replace
-   only the `~/.agents/skills/skill-orchestration` prefix with this file's
-   containing directory. The scanner infers the shared `skills/` root, follows
-   symlinked project namespaces, and emits skill `name`, absolute `path`, and
-   `description` records as tab-separated values. The emitted `path` is
-   authoritative; never reconstruct a path from the skill name or namespace.
-   When only a skill name is available, resolve its exact path with:
+   It scans the shared `skills/` root, follows symlinked namespaces, and emits
+   `name`, absolute `path`, and `description`. Treat emitted paths as metadata;
+   resolve selected names in step 4.
+
+3. **Route.** Match the request against skill descriptions, then select the
+   smallest sufficient set: normally one workflow skill plus only required
+   domain or verification skills. If no skill matches, continue with global rules.
+4. **Resolve paths.** Before reading any selected skill, resolve each name through
+   the bundled helper, even when the catalog supplied a location:
 
    ```bash
-   python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
-     --root ~/.agents/skills --name <skill-name>
+   python3 <skill-directory>/scripts/discover_skills.py --name <skill-name>
    ```
 
-3. **Match semantically.** Compare the current request and relevant conversation
-   state with each skill's `name` and `description`. Descriptions are trigger
-   contracts, not marketing summaries.
-4. **Choose the smallest sufficient set.** Prefer one primary workflow skill plus
-   only the domain or verification skills required to complete the task.
-5. **Handle missing skills deliberately.** `skill-orchestration` only selects
-   installed / available skills. If no available skill covers a needed domain
-   capability, do not invent one. Ask the user whether to search / install a
-   skill. Only after approval, load **`find-skills`** to search, recommend, and
-   install; then rerun discovery from step 2. If the user declines, continue with
-   available skills and global / repository instructions.
-6. **Load before acting.** Read every selected `SKILL.md` from its exact
-   discovered path, preserving nested directories and symlinks. Never flatten
-   or reconstruct a selected skill as `<skills-root>/<name>/SKILL.md`. When it
-   references a relative file, resolve it from that skill's directory. If only
-   the name is known or the read reports `ENOENT`, run the resolver from step 2
-   and read its returned path verbatim. Do not substitute `projects/` for a
-   nested category, create an alias, or duplicate the skill. If the resolver's
-   exact path fails, report the filesystem error.
-7. **Compose instructions.** Follow global rules first, then workflow skills,
-   then domain-specific skills. A more specific matching skill controls its
-   domain unless it conflicts with higher-level instructions.
-8. **Route tools.** Use directly available tools by their descriptions. For MCP
-   capabilities, search the MCP catalog when needed. Never invent an unavailable
-   tool; selected skills may impose additional tool requirements.
-9. **Act and verify.** Implement the smallest correct change and run the strongest
-   applicable checks.
+   Use returned path verbatim. A nonzero result means missing or duplicate skill;
+   handle it as a gap, never guess or create an alias.
+5. **Handle gaps.** If a needed skill is not installed, ask before searching or
+   installing. After approval, load `find-skills`, install only through it, then
+   rerun discovery. Otherwise proceed without the skill.
+6. **Load and act.** Read each resolved file, then resolve its relative references
+   from that file's directory. On `ENOENT`, rerun `--name` once and retry the
+   returned path; if it fails again, report the filesystem error. Compose global →
+   workflow → domain guidance, route only available tools, and implement the
+   smallest correct change.
+7. **Verify.** Run the strongest applicable checks and report any remaining
+   uncertainty.
 
 ## Selection rules
 
@@ -78,7 +63,8 @@ full skill bodies speculatively.
 - Multiple domains may match, but plausibility alone is not enough. Every loaded
   skill must have a concrete role in the task.
 - Do not select `skill-orchestration` again after routing has started.
-- Do not execute any discovered skill's bundled scripts during discovery.
+- Do not execute candidate-skill scripts during discovery; only run the
+  skill-orchestration discovery helper when refreshing the catalog.
 - Do not install skills during routing. Install only through `find-skills`, only
   after explicit user approval, then rerun discovery.
 - If two skills conflict, apply the more specific instruction unless a global or
@@ -91,8 +77,7 @@ full skill bodies speculatively.
 Run this after adding, moving, renaming, or removing skills:
 
 ```bash
-python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
-  --root ~/.agents/skills --check
+python3 <skill-directory>/scripts/discover_skills.py --check
 ```
 
 Validation fails for broken symlinks, unreadable or invalid frontmatter, missing
