@@ -28,8 +28,12 @@ company-owned skills under `~/.agents/skills/projects/`.
 - Non-project directories under `~/.agents/skills/` are the open-source/private
   skill source tree; edit them directly with `write` or `edit`, preserving their
   category and existing conventions.
-- `~/.agents/skills/projects/` is company-owned. Never create, edit, delete, or
-  reformat files there from this skill.
+- `~/.agents/skills/projects/` is company-owned and remains a direct child of
+  the skills root. Never create, edit, delete, or reformat files there from this
+  skill.
+- Shared skills may live under category directories such as `core/`,
+  `planning/`, or `operations/`; category paths are organizational, not aliases.
+  Preserve one canonical directory per skill and update references after moves.
 - `skill_manage` creates skills in its managed store; it is not a substitute
   for editing this repository source tree.
 - Before editing, read applicable `AGENTS.md` files and the target skill body.
@@ -112,7 +116,7 @@ assert re.search(r"^description:\s*[^\n]+$", frontmatter, re.M)
 assert len(s) <= 100_000
 print(f"valid: {p} ({len(s)} chars)")
 PY
-python3 ~/.agents/skills/skill-orchestration/scripts/discover_skills.py \
+python3 ~/.agents/skills/core/skill-orchestration/scripts/discover_skills.py \
   --root ~/.agents/skills --check
 ```
 

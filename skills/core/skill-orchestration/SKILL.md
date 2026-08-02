@@ -27,9 +27,21 @@ bodies speculatively.
    python3 <skill-directory>/scripts/discover_skills.py
    ```
 
-   It scans the shared `skills/` root, follows symlinked namespaces, and emits
-   `name`, absolute `path`, and `description`. Treat emitted paths as metadata;
-   resolve selected names in step 4.
+   For project work, set `SKILL_AGENT=pi` or `SKILL_AGENT=claude` when the
+   harness is known. The helper then searches the agent-specific root first
+   (`.pi/skills` then `.agents/skills` for Pi; `.claude/skills` then
+   `.agents/skills` for Claude), followed by shared `~/.agents/skills`. With
+   `SKILL_AGENT=auto` (the default), it searches generic `.agents/skills`, then
+   agent-specific project roots:
+
+   ```bash
+   python3 <skill-directory>/scripts/discover_skills.py \
+     --agent "${SKILL_AGENT:-auto}"
+   ```
+
+   Earlier roots win by skill name. It follows symlinked
+   namespaces and emits `name`, absolute `path`, and `description`. Treat emitted
+   paths as metadata; resolve selected names in step 4.
 
 3. **Route.** Match the request against skill descriptions, then select the
    smallest sufficient set: normally one workflow skill plus only required
@@ -38,17 +50,20 @@ bodies speculatively.
    the bundled helper, even when the catalog supplied a location:
 
    ```bash
-   python3 <skill-directory>/scripts/discover_skills.py --name <skill-name>
+   python3 <skill-directory>/scripts/discover_skills.py \
+     --agent "${SKILL_AGENT:-auto}" --name <skill-name>
    ```
 
-   Use returned path verbatim. A nonzero result means missing or duplicate skill;
+   Earlier roots win. Use returned path verbatim; never flatten a category or
+   project namespace. A nonzero result means missing or duplicate skill;
    handle it as a gap, never guess or create an alias.
 5. **Handle gaps.** If a needed skill is not installed, ask before searching or
    installing. After approval, load `find-skills`, install only through it, then
    rerun discovery. Otherwise proceed without the skill.
 6. **Load and act.** Read each resolved file, then resolve its relative references
-   from that file's directory. On `ENOENT`, rerun `--name` once and retry the
-   returned path; if it fails again, report the filesystem error. Compose global →
+   from that file's directory. On `ENOENT`, rerun the same agent-aware `--name`
+   lookup once and retry the returned path; if it fails again, report the
+   filesystem error. Compose global →
    workflow → domain guidance, route only available tools, and implement the
    smallest correct change.
 7. **Verify.** Run the strongest applicable checks and report any remaining

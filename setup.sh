@@ -11,6 +11,7 @@
 #   ./setup.sh --unlink     # remove instruction links, restore .bak if available
 #   ./setup.sh --link-skills    # link allowlisted portable skills
 #   ./setup.sh --unlink-skills  # remove portable skill links
+#   ./setup.sh --check-skills   # validate portable skill paths
 #
 
 set -euo pipefail
@@ -18,6 +19,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTRUCTIONS="${SCRIPT_DIR}/instructions"
 PORTABLE_SKILLS="${SCRIPT_DIR}/skills/portable.txt"
+
+# Project-local .pi/.agents/.claude roots are selected by skill-orchestration;
+# this script links only shared, portable skills into flat harness directories.
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -96,10 +100,15 @@ link_skill() {
 		current="$(readlink "$target")"
 		if [ "$current" = "$canonical" ]; then
 			dim "$(basename "$target") already linked"
+		elif [[ "$current" == "${SCRIPT_DIR}/skills/"* ]]; then
+			rm "$target"
+			yellow "Refreshing stale skill link $(basename "$target")"
 		else
 			yellow "Skipped existing skill $(basename "$target")"
 		fi
-		return 0
+		if [ -e "$target" ]; then
+			return 0
+		fi
 	elif [ -e "$target" ]; then
 		yellow "Skipped existing skill $(basename "$target")"
 		return 0
@@ -109,11 +118,38 @@ link_skill() {
 	green "$(basename "$target") → $(basename "$canonical")"
 }
 
-link_portable_skills() {
+validate_portable_skills() {
 	if [ ! -f "$PORTABLE_SKILLS" ]; then
 		echo "Error: ${PORTABLE_SKILLS} not found." >&2
-		exit 1
+		return 1
 	fi
+
+	local skill source duplicate
+	duplicate="$(awk -F/ '!/^[[:space:]]*#/ && NF {count[$NF]++} END {for (name in count) if (count[name] > 1) print name}' "$PORTABLE_SKILLS" | sort)"
+	if [ -n "$duplicate" ]; then
+		echo "Error: flat harness links would collide: $duplicate" >&2
+		return 1
+	fi
+
+	while IFS= read -r skill || [ -n "$skill" ]; do
+		case "$skill" in '' | \#*) continue ;; esac
+		case "$skill" in
+		/* | ../* | */../*)
+			echo "Error: portable skill path must stay under skills/: $skill" >&2
+			return 1
+			;;
+		esac
+		source="${SCRIPT_DIR}/skills/${skill}"
+		if [ ! -d "$source" ] || [ ! -f "$source/SKILL.md" ]; then
+			echo "Error: portable skill path is missing SKILL.md: $skill" >&2
+			return 1
+		fi
+	done <"$PORTABLE_SKILLS"
+	return 0
+}
+
+link_portable_skills() {
+	validate_portable_skills
 
 	for harness in claude codex; do
 		local root="${HOME}/.${harness}"
@@ -127,14 +163,14 @@ link_portable_skills() {
 				yellow "Missing skill ${skill}"
 				continue
 			}
-			link_skill "$source" "${root}/skills/${skill}"
+			link_skill "$source" "${root}/skills/$(basename "$skill")"
 		done <"$PORTABLE_SKILLS"
 		echo ""
 	done
 }
 
 unlink_portable_skills() {
-	[ -f "$PORTABLE_SKILLS" ] || exit 0
+	validate_portable_skills
 
 	for harness in claude codex; do
 		local root="${HOME}/.${harness}"
@@ -143,10 +179,15 @@ unlink_portable_skills() {
 		while IFS= read -r skill || [ -n "$skill" ]; do
 			case "$skill" in '' | \#*) continue ;; esac
 			local source="${SCRIPT_DIR}/skills/${skill}"
-			local target="${root}/skills/${skill}"
-			if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
-				rm "$target"
-				green "Removed $(basename "$target")"
+			local target
+			target="${root}/skills/$(basename "$skill")"
+			if [ -L "$target" ]; then
+				local current
+				current="$(readlink "$target")"
+				if [ "$current" = "$source" ] || [[ "$current" == "${SCRIPT_DIR}/skills/"* ]]; then
+					rm "$target"
+					green "Removed $(basename "$target")"
+				fi
 			fi
 		done <"$PORTABLE_SKILLS"
 	done
@@ -162,6 +203,11 @@ fi
 # ── Mode ─────────────────────────────────────────────────────────────
 
 MODE="${1:-link}"
+
+if [ "$MODE" = "--check-skills" ]; then
+	validate_portable_skills
+	exit 0
+fi
 
 if [ "$MODE" = "--link-skills" ]; then
 	link_portable_skills

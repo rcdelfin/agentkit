@@ -149,16 +149,22 @@ allowlist for markdown-only skills that do not require harness-specific tools.
 ./setup.sh --link-skills
 ```
 
-This creates individual links in detected Claude and Codex skill directories.
-It never links the whole `skills/` tree. Skills with harness- or MCP-specific tools stay canonical until a native adapter exists. Gemini support is deferred
+This creates flat, individual links in detected Claude and Codex skill
+directories while preserving category paths in canonical `skills/`. It never
+links the whole `skills/` tree. Skills with harness- or MCP-specific tools stay
+canonical until a native adapter exists. Gemini support is deferred
 until its skill-loading contract is verified.
 
-To add a skill, test it in each target harness first, then add its directory name
-to `skills/portable.txt`.
+To add a skill, test it in each target harness first, then add its relative
+category path to `skills/portable.txt`.
+
+Project-local skills stay in their agent root: generic `.agents/skills`, Pi
+`.pi/skills`, or Claude `.claude/skills`. `skill-orchestration` selects the
+agent-specific root first, then falls back to generic and shared skills.
 
 ### Featured: Tweak — Change Planning
 
-[Tweak](skills/tweak/) turns *"I want to change X"* into a self-contained,
+[Tweak](skills/planning/tweak/) turns *"I want to change X"* into a self-contained,
 four-artifact plan that a separate agent or teammate can execute with zero
 context — then folds the results into a living system spec on archive.
 
@@ -178,8 +184,8 @@ Just tell your agent:
 
 > *Tweak: I want to add per-tier rate limiting to the public API.*
 
-- **Full docs:** [`skills/tweak/README.md`](skills/tweak/README.md)
-- **Worked example:** `skills/tweak/examples/add-rate-limiting/`
+- **Full docs:** [`skills/planning/tweak/README.md`](skills/planning/tweak/README.md)
+- **Worked example:** `skills/planning/tweak/examples/add-rate-limiting/`
 
 ### Skill Catalog
 
@@ -191,40 +197,40 @@ repository.
 
 | Skill | What it does |
 |-------|-------------|
-| [skill-orchestration](skills/skill-orchestration/) | Dynamically discovers and loads the smallest matching skill set |
-| [tweak](skills/tweak/) | Turns a change request into a self-contained implementation plan |
-| [scrutinize](skills/scrutinize/) | Reviews plans, PRs, and code changes from an outsider perspective |
-| [improve](skills/improve/) | Audits a codebase and writes prioritized implementation plans |
-| [systems-thinking](skills/systems-thinking/) | Traces state ownership, feedback, and blast radius |
-| [dox](skills/dox/) | Maintains the self-documenting AGENTS.md hierarchy |
+| [skill-orchestration](skills/core/skill-orchestration/) | Dynamically discovers and loads the smallest matching skill set |
+| [tweak](skills/planning/tweak/) | Turns a change request into a self-contained implementation plan |
+| [scrutinize](skills/planning/scrutinize/) | Reviews plans, PRs, and code changes from an outsider perspective |
+| [improve](skills/planning/improve/) | Audits a codebase and writes prioritized implementation plans |
+| [systems-thinking](skills/planning/systems-thinking/) | Traces state ownership, feedback, and blast radius |
+| [dox](skills/planning/dox/) | Maintains the self-documenting AGENTS.md hierarchy |
 
 #### Debugging and reasoning
 
 | Skill | What it does |
 |-------|-------------|
-| [investigate](skills/investigate/) | Leads systematic root-cause investigation |
+| [investigate](skills/debugging/investigate/) | Leads systematic root-cause investigation |
 | [systematic-debugging](skills/software-development/systematic-debugging/) | Provides a four-phase debugging workflow |
-| [analogical-thinking](skills/analogical-thinking/) | Uses structural analogies when standard approaches stall |
-| [ponytail](skills/ponytail/) | Enforces the smallest solution that actually works |
+| [analogical-thinking](skills/debugging/analogical-thinking/) | Uses structural analogies when standard approaches stall |
+| [ponytail](skills/debugging/ponytail/) | Enforces the smallest solution that actually works |
 
 #### Knowledge, operations, and discovery
 
 | Skill | What it does |
 |-------|-------------|
-| [local-wiki](skills/local-wiki/) | Ingests source material into a governed local knowledge base |
-| [clickup](skills/clickup/) | Retrieves and triages ClickUp tasks |
-| [clickup-tweak-workflow](skills/clickup-tweak-workflow/) | Takes a ClickUp card (fix or feature) end-to-end: ingest → branch → understand → route → plan → implement & verify → review loop |
-| [mr-review](skills/mr-review/) | Fetches and resolves merge-request review feedback |
-| [find-skills](skills/find-skills/) | Discovers and installs skills from the ecosystem |
-| [openspec](skills/openspec/) | Runs artifact-driven change workflows |
+| [local-wiki](skills/operations/local-wiki/) | Ingests source material into a governed local knowledge base |
+| [clickup](skills/operations/clickup/) | Retrieves and triages ClickUp tasks |
+| [clickup-tweak-workflow](skills/operations/clickup-tweak-workflow/) | Takes a ClickUp card (fix or feature) end-to-end: ingest → branch → understand → route → plan → implement & verify → review loop |
+| [mr-review](skills/operations/mr-review/) | Fetches and resolves merge-request review feedback |
+| [find-skills](skills/core/find-skills/) | Discovers and installs skills from the ecosystem |
+| [openspec](skills/planning/openspec/) | Runs artifact-driven change workflows |
 
 #### Communication and UI quality
 
 | Skill | What it does |
 |-------|-------------|
-| [impeccable](skills/impeccable/) | Provides production-grade frontend design and iteration |
-| [caveman](skills/caveman/) | Compresses communication while preserving technical accuracy |
-| [caveman-commit](skills/caveman-commit/) | Generates concise Conventional Commit messages |
+| [impeccable](skills/design/impeccable/) | Provides production-grade frontend design and iteration |
+| [caveman](skills/communication/caveman/) | Compresses communication while preserving technical accuracy |
+| [caveman-commit](skills/communication/caveman-commit/) | Generates concise Conventional Commit messages |
 
 #### Development bundles
 
@@ -235,7 +241,7 @@ repository.
 
 ### Local wiki workflow
 
-The [`local-wiki`](skills/local-wiki/) skill supports governed project knowledge
+The [`local-wiki`](skills/operations/local-wiki/) skill supports governed project knowledge
 bases. It discovers a wiki dynamically, reads its nearest `AGENTS.md` before
 writing, appends source material to the raw corpus, and rebuilds derived pages.
 If no governed wiki exists, the skill asks whether to bootstrap one instead of
@@ -250,7 +256,7 @@ creating an undocumented structure.
 
 ### Write Your Own
 
-Use [`agentkit-skill-authoring`](skills/software-development/agentkit-skill-authoring/)
+Use [`agentkit-skill-authoring`](skills/core/agentkit-skill-authoring/)
 to design portable triggers, metadata, procedures, and verification before
 adding a skill to the catalog.
 
@@ -309,20 +315,14 @@ command.
 │   ├── SYSTEM.md              ← agent identity & engineering principles
 │   └── AGENTS.md              ← global development workflow
 └── skills/                    ← skill library (auto-discovered)
-    ├── skill-orchestration/   ← skill and MCP routing
-    ├── tweak/                 ← change planning (featured)
-    ├── scrutinize/            ← code review & second opinions
-    ├── improve/               ← codebase audit & roadmap
-    ├── systems-thinking/      ← state, feedback & blast-radius analysis
-    ├── dox/                   ← self-documenting AGENTS.md hierarchy
-    ├── investigate/           ← root-cause debugging
-    ├── analogical-thinking/   ← cross-domain reasoning
-    ├── local-wiki/            ← governed knowledge-base ingestion
-    ├── openspec/              ← artifact-driven workflows
-    ├── impeccable/            ← frontend design & iteration
-    ├── find-skills/           ← skill discovery
+    ├── core/                  ← AgentKit authoring, discovery & routing
+    ├── planning/              ← change planning, review & architecture
+    ├── debugging/             ← investigation, reasoning & minimality
+    ├── operations/            ← ClickUp, wiki & merge-request workflows
+    ├── communication/         ← concise communication & content
+    ├── design/                ← frontend design & iteration
     ├── software-development/  ← Laravel, TDD, PHP, security, and more
-    └── projects/              ← private skills (gitignored)
+    └── projects/              ← private skills (gitignored; root exception)
 ```
 
 ---

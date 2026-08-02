@@ -51,7 +51,7 @@ Tweak is triggered by intent words: **tweak**, *plan change*, *proposal*,
    git clone https://github.com/rcdelfin/agentkit ~/.agents
    ```
 
-   Tweak lives at `~/.agents/skills/tweak/`. Adjust the path to wherever your
+   Tweak lives at `~/.agents/skills/planning/tweak/`. Adjust the path to wherever your
    agent looks for skills — e.g. `~/.claude/skills/`, `~/.codex/skills/`, or a
    project-local `.agents/skills/`.
 

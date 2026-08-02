@@ -150,18 +150,59 @@ def discover(root: Path) -> tuple[list[Skill], list[str]]:
     return sorted(skills, key=lambda skill: (skill.name, skill.path)), issues
 
 
-def parse_args() -> argparse.Namespace:
+def default_skills_root() -> Path:
     # Preserve the installed path if this skill is itself symlinked. Resolving
     # __file__ here could incorrectly scan the source repository's skills.
-    default_root = Path(__file__).absolute().parents[2]
+    script_path = Path(__file__).absolute()
+    return next(
+        (parent for parent in script_path.parents if parent.name == "skills"),
+        script_path.parents[3],
+    )
+
+
+def project_skills_roots(agent: str) -> list[Path]:
+    shared_root = default_skills_root()
+    relative_roots: tuple[str, ...] = {
+        "auto": (".agents/skills", ".pi/skills", ".claude/skills"),
+        "pi": (".pi/skills", ".agents/skills"),
+        "claude": (".claude/skills", ".agents/skills"),
+        "codex": (".codex/skills", ".agents/skills"),
+    }[agent]
+    roots: list[Path] = []
+    found_roots: set[str] = set()
+    start = Path.cwd().absolute()
+    home = Path.home().absolute()
+    for parent in (start, *start.parents):
+        if parent == home:
+            break
+        for relative_root in relative_roots:
+            if relative_root in found_roots:
+                continue
+            candidate = (parent / relative_root).absolute()
+            if candidate == shared_root or not candidate.is_dir():
+                continue
+            roots.append(candidate)
+            found_roots.add(relative_root)
+        if len(found_roots) == len(relative_roots):
+            break
+    return roots
+
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="List discoverable skills from SKILL.md frontmatter."
     )
     parser.add_argument(
+        "--agent",
+        choices=("auto", "pi", "claude", "codex"),
+        default="auto",
+        help="project skill root selection (default: auto)",
+    )
+    parser.add_argument(
         "--root",
+        action="append",
         type=Path,
-        default=default_root,
-        help=f"skills root (default: {default_root})",
+        help="skills root; repeat to search in precedence order",
     )
     parser.add_argument(
         "--format",
@@ -185,23 +226,41 @@ def main() -> int:
     args = parse_args()
     # Keep symlink spelling in emitted paths so callers can read the discovered
     # entry instead of reconstructing a different namespace from its name.
-    root = args.root.expanduser().absolute()
-    if not root.is_dir():
-        print(f"error: skills root does not exist: {root}", file=sys.stderr)
-        return 2
+    configured_roots = args.root
+    if configured_roots is None:
+        configured_roots = project_skills_roots(args.agent) + [default_skills_root()]
+    roots = [root.expanduser().absolute() for root in configured_roots]
+    skills: list[Skill] = []
+    issues: list[str] = []
+    for root in roots:
+        if not root.is_dir():
+            issues.append(f"{root}: skills root does not exist")
+            continue
+        discovered, root_issues = discover(root)
+        skills.extend(discovered)
+        issues.extend(root_issues)
 
-    skills, issues = discover(root)
+    # Earlier roots win, allowing project skills to override shared skills by
+    # name without flattening either namespace or changing emitted paths.
+    unique_skills: list[Skill] = []
+    seen_names: set[str] = set()
+    for skill in skills:
+        if skill.name in seen_names:
+            continue
+        seen_names.add(skill.name)
+        unique_skills.append(skill)
+
     if args.name is not None:
-        matches = [skill for skill in skills if skill.name == args.name.strip()]
+        matches = [skill for skill in unique_skills if skill.name == args.name.strip()]
         if len(matches) != 1:
             detail = "not found" if not matches else "duplicate name"
             print(f"error: skill {args.name!r}: {detail}", file=sys.stderr)
             return 1
         print(matches[0].path)
     elif args.format == "json":
-        print(json.dumps([skill._asdict() for skill in skills], indent=2))
+        print(json.dumps([skill._asdict() for skill in unique_skills], indent=2))
     else:
-        for skill in skills:
+        for skill in unique_skills:
             print(f"{skill.name}\t{skill.path}\t{skill.description}")
 
     for issue in issues:

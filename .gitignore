@@ -8,7 +8,7 @@ skills/projects/
 .skill-lock.json
 
 .ruff_cache
-skills/clickup/scripts/__pycache__/
+skills/operations/clickup/scripts/__pycache__/
 
 # Local secrets — real values never committed; .env.sample is the template.
 .env

@@ -2,7 +2,7 @@
 name: clickup-tweak-workflow
 description: "Use when fixing or building a ClickUp card ID (e.g. GYMED-100) end-to-end, including branch, verification, and MR review."
 metadata:
-  version: "5.1.0"
+  version: "5.3.0"
   scope: "global"
 ---
 
@@ -30,7 +30,7 @@ scripts read `CLICKUP_API_KEY` (canonical), optional `CLICKUP_API_TOKEN`, and
 or expose secret values.
 
 | Var | Used by | Fallback if env missing |
-|---|---|---|
+| --- | --- | --- |
 | `CLICKUP_API_KEY` (canonical) | MCP server **and** REST scripts | `~/.agents/.env` |
 | `CLICKUP_API_TOKEN` (optional) | REST scripts; legacy alias for `KEY` | `~/.agents/.env` |
 | `CLICKUP_TEAM_ID` | both — custom-ID resolution | `5747865` |
@@ -46,7 +46,7 @@ credentials from `~/.agents/.env`.
 [ -n "$CLICKUP_API_TOKEN" ] && echo "env TOKEN ok" || echo "env TOKEN MISSING"
 [ -n "$CLICKUP_API_KEY"   ] && echo "env KEY ok"   || echo "env KEY MISSING"
 # Live test (scripts read env first):
-python3 ~/.agents/skills/clickup/scripts/show_task.py GYMED-793 --meta
+python3 ~/.agents/skills/operations/clickup/scripts/show_task.py GYMED-793 --meta
 ```
 
 If credentials are unavailable, stop and ask the user — never guess card content.
@@ -68,13 +68,22 @@ stops after local verification.
    the REST scripts (`show_task.py <ID>`, `show_comments.py <ID>`) read creds
    from inherited env or `~/.agents/.env` (see **Prerequisites**). Either way it
    writes the append-only raw corpus + rebuilds the topic page per the wiki's
-   governance.
+   governance. If the card does not define a safe destination, stop and ask for
+   clarification. For non-trivial cards, carry the destination (one-sentence done
+   condition), boundary, and blocking unknowns into the `tweak` proposal/specs
+   at step 4. If planning is blocked, append them to the card or a wiki location
+   allowed by its `AGENTS.md`. For trivial cards, use a governed append-only note
+   or card comment; never hand-edit rebuild-only wiki pages.
 
-2. **Classify & branch.** Classify the card, pick the prefix + base, then branch
-   off the base the user confirms — never assume. Use **`git-actions`**.
+2. **Claim, classify & branch.** Confirm card ownership before coding. If the
+   card is unassigned, claim it through the approved tracker update operation when
+   authorized; otherwise stop and ask. If assigned to someone else, stop and
+   coordinate rather than duplicate work. Then classify the card, pick the prefix
+   + base, and branch off the base the user confirms — never assume. Use
+   **`git-actions`**.
 
    | Signal | Type | Prefix | Suggested base |
-   |---|---|---|---|
+   | --- | --- | --- | --- |
    | Urgent prod breakage — "hotfix", "urgent", critical priority on a defect | Hotfix | `hotfix/` | `main` |
    | Something broken — "bug", "fix", "error", a Bug task type/tag | Bugfix | `bugfix/` | `develop` |
    | New capability or behavior change — "add", "implement", "enhance", a Feature/Story type | Feature | `feature/` | `develop` |
@@ -87,27 +96,30 @@ stops after local verification.
 
 3. **Understand — type-dependent.**
 
-   - **Bugfix / Hotfix** → **`investigate`**: root-cause the defect before
+   + **Bugfix / Hotfix** → **`investigate`**: root-cause the defect before
      touching code (4 phases: investigate → analyze → hypothesize → implement).
      For a **hotfix**, keep it tight — root cause first, even under time
      pressure.
-   - **Feature** → **`systems-thinking`**: map state ownership, feedback loops,
+   + **Feature** → **`systems-thinking`**: map state ownership, feedback loops,
      and blast radius before changing anything; a feature is usually a
      cross-boundary / architecture change.
 
    If a bugfix turns out to need design work (behavior change, multiple
    approaches), give it the **`systems-thinking`** pass too.
 
-4. **Route & plan.**
+4. **Route & plan.** If blocking decisions remain, stop and ask to clarify or
+   split the card. If the card exceeds one session but its destination is clear,
+   require a `tweak` plan and explicit handoff checkpoint in its tasks or handoff
+   note; do not claim completion or create speculative implementation scope.
 
-   - **Route** → hand off to **`skill-orchestration`** to discover and load the
+   + **Route** → hand off to **`skill-orchestration`** to discover and load the
      smallest set of domain skills the actual change needs (e.g.
      `laravel-conventions`, `api-endpoint-development`, `nuxt-*`, `pest-testing`
      — whatever the code / language / framework touched calls for). Don't guess;
      let it match from the catalog.
-   - **Plan when needed** → if the change is non-trivial, plan it with
+   + **Plan when needed** → if the change is non-trivial, plan it with
      **`tweak`** (proposal → specs → design → tasks) before implementing.
-   - **Scrutinize when needed** → after planning and before implementation, run
+   + **Scrutinize when needed** → after planning and before implementation, run
      **`scrutinize`** for cross-boundary, risky, public-contract, security,
      multiple-approach, or explicitly requested sanity-check work. Skip it for
      trivial one-file fixes and routine docs/config changes.
@@ -129,27 +141,39 @@ stops after local verification.
    owns local fixes, verification, replies, and resolution. Never resolve first.
    Repeat after each push until no resolvable threads remain.
 
+9. **Record resolution when authorized.** After verified shipping and review,
+   add a concise resolution comment and update the card status through the approved
+   tracker operation. If closure is not authorized or shipping is pending, record
+   that explicitly instead of marking the card complete.
+
 ## Pitfalls
 
-- **Keep one token var**: `CLICKUP_API_KEY` is canonical; REST scripts accept
++ **Keep one token var**: `CLICKUP_API_KEY` is canonical; REST scripts accept
   `CLICKUP_API_TOKEN` as a legacy alias. Keep credentials in `~/.agents/.env`
   and never print their values.
-- Never assume branch base, branch type, or MR creation is authorized.
-- Do not skip root-cause investigation for hotfixes because urgency increases
++ Never assume branch base, branch type, or MR creation is authorized.
++ Do not start unclaimed work or duplicate an already claimed card.
++ Do not pre-slice unresolved decisions into speculative implementation tasks.
++ Do not write planning metadata directly into rebuild-only wiki pages.
++ Do not mark a card complete without resolution evidence or authorized closure.
++ Do not skip root-cause investigation for hotfixes because urgency increases
   the cost of a wrong patch.
-- Do not push unverified code or resolve review threads before fixes are pushed.
-- Do not assume `ai_code_review` exists; record a missing gate instead of polling
++ Do not push unverified code or resolve review threads before fixes are pushed.
++ Do not assume `ai_code_review` exists; record a missing gate instead of polling
   forever.
-- Do not load every domain skill; route only skills required by touched code.
-- Do not use `scrutinize` as a substitute for tests or post-MR `mr-review`.
++ Do not load every domain skill; route only skills required by touched code.
++ Do not use `scrutinize` as a substitute for tests or post-MR `mr-review`.
 
 ## Verification
 
-- [ ] Card and comments persisted in the governed local wiki.
-- [ ] Card type, branch name, and base confirmed before branching.
-- [ ] Required domain skills routed; non-trivial work planned with `tweak`.
-- [ ] Risky/non-trivial plan or change scrutinized, or skip was justified.
-- [ ] Tests, typecheck, lint, or strongest applicable checks pass.
-- [ ] MR created only when explicitly requested.
-- [ ] When present, AI review completed; otherwise missing gate recorded.
-- [ ] Every resolvable review thread fixed or explained, replied to, and resolved.
++ [ ] Card and comments persisted in the governed local wiki.
++ [ ] Destination, boundary, and blocking unknowns recorded.
++ [ ] Card ownership, type, branch name, and base confirmed before branching.
++ [ ] Required domain skills routed; non-trivial work planned with `tweak`.
++ [ ] Large work has a plan and explicit handoff checkpoint, or is complete in-session.
++ [ ] Risky/non-trivial plan or change scrutinized, or skip was justified.
++ [ ] Tests, typecheck, lint, or strongest applicable checks pass.
++ [ ] MR created only when explicitly requested.
++ [ ] When present, AI review completed; otherwise missing gate recorded.
++ [ ] Every resolvable review thread fixed or explained, replied to, and resolved.
++ [ ] Resolution comment/status recorded, or closure explicitly pending authorization.
