@@ -347,6 +347,7 @@ AgentKit incorporates or adapts ideas and references from:
 - [obra/superpowers](https://github.com/obra/superpowers) — TDD and debugging foundations
 - [agent0ai/dox](https://github.com/agent0ai/dox) — self-documenting instruction hierarchy
 - [skills.sh](https://skills.sh/) — community skill discovery
+- Peter Naur — “Programming as Theory Building” (1985), foundation for the systems-thinking skill
 
 Individual skills retain their own upstream attribution and licenses.
 
