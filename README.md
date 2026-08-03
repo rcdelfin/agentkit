@@ -103,12 +103,12 @@ and symlinks them to `instructions/`. **Idempotent** — safe to re-run.
         ├── ~/.pi/agent/{SYSTEM,AGENTS}.md     (symlinks)
         ├── ~/.claude/{SYSTEM,AGENTS}.md       (symlinks)
         │   └── CLAUDE.md                           = @SYSTEM.md + @AGENTS.md
-        ├── ~/.codex/AGENTS.md                      (symlink)
+        ├── ~/.codex/AGENTS.md                      (generated SYSTEM + AGENTS)
         └── ~/.gemini/GEMINI.md                     (symlink)
 ```
 
-Edit once in `instructions/` → every harness sees the update. No rebuild,
-no re-install.
+Edit once in `instructions/` → Pi, Claude, Gemini see updates immediately.
+Re-run `./setup.sh` after editing to refresh generated Codex instructions.
 
 ---
 
@@ -118,7 +118,7 @@ no re-install.
 |---------|-------------|--------|
 | **Pi** | `~/.pi/agent/` | Instruction symlinks + canonical `~/.agents/skills/` |
 | **Claude Code** | `~/.claude/CLAUDE.md` | Thin `@import` wrapper + optional skill links |
-| **Codex** | `~/.codex/AGENTS.md` | Direct symlink + optional skill links |
+| **Codex** | `~/.codex/AGENTS.md` | Generated SYSTEM + AGENTS + optional skill links |
 | **Gemini CLI** | `~/.gemini/GEMINI.md` | Direct instruction symlink |
 
 ### Adding a Harness
