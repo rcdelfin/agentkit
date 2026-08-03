@@ -1,5 +1,6 @@
 # Markdown-only skills with no harness-specific tool requirements.
 # Add a skill only after testing it in each target harness.
+core/skill-orchestration
 debugging/analogical-thinking
 communication/caveman
 planning/dox
@@ -9,3 +10,7 @@ debugging/ponytail
 planning/scrutinize
 planning/systems-thinking
 planning/tweak
+operations/clickup
+operations/clickup-tweak-workflow
+operations/local-wiki
+operations/mr-review
